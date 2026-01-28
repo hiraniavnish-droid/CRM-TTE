@@ -1,9 +1,10 @@
 
-import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
 import { Lead, Interaction, Reminder, LeadStatus, Supplier, ActivityLog } from '../types';
-import { MOCK_LEADS, MOCK_INTERACTIONS, MOCK_REMINDERS, MOCK_SUPPLIERS, MOCK_ACTIVITY_LOGS } from '../constants';
+import { MOCK_INTERACTIONS, MOCK_REMINDERS, MOCK_SUPPLIERS, MOCK_ACTIVITY_LOGS } from '../constants';
 import { generateId } from '../utils/helpers';
 import { useAuth } from './AuthContext';
+import { supabase } from '../lib/supabase';
 
 // Nudge Type Definition
 export interface NudgeData {
@@ -20,11 +21,12 @@ interface LeadContextType {
   reminders: Reminder[];
   suppliers: Supplier[];
   activityLogs: ActivityLog[]; 
-  addLead: (lead: Lead) => void;
-  addLeads: (leads: Lead[]) => void;
-  updateLead: (id: string, updates: Partial<Lead>) => void;
-  updateLeadStatus: (id: string, status: LeadStatus, customLog?: string) => void;
-  deleteLead: (id: string) => void;
+  isLoading: boolean;
+  addLead: (lead: Lead) => Promise<void>;
+  addLeads: (leads: Lead[]) => Promise<void>;
+  updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
+  updateLeadStatus: (id: string, status: LeadStatus, customLog?: string) => Promise<void>;
+  deleteLead: (id: string) => Promise<void>;
   addInteraction: (interaction: Interaction) => void;
   addReminder: (reminder: Reminder) => void;
   updateReminder: (id: string, updates: Partial<Reminder>) => void;
@@ -37,7 +39,6 @@ interface LeadContextType {
   updateSupplier: (supplier: Supplier) => void;
   isAddLeadModalOpen: boolean; 
   setAddLeadModalOpen: (isOpen: boolean) => void;
-  // New Nudge State
   nudge: NudgeData;
   closeNudge: () => void;
 }
@@ -47,15 +48,88 @@ const LeadContext = createContext<LeadContextType | undefined>(undefined);
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   
-  const [internalLeads, setInternalLeads] = useState<Lead[]>(MOCK_LEADS);
+  // -- Real Data State --
+  const [internalLeads, setInternalLeads] = useState<Lead[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // -- Mock Data States (Keeping local for now) --
   const [interactions, setInteractions] = useState<Interaction[]>(MOCK_INTERACTIONS);
   const [reminders, setReminders] = useState<Reminder[]>(MOCK_REMINDERS);
   const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(MOCK_ACTIVITY_LOGS);
   
-  // UI States
+  // -- UI States --
   const [isAddLeadModalOpen, setAddLeadModalOpen] = useState(false);
   const [nudge, setNudge] = useState<NudgeData>({ isOpen: false, leadId: null, leadName: '', status: null });
+
+  // --- Helpers: Data Mapping (App <-> DB) ---
+  const mapLeadFromDB = (data: any): Lead => ({
+    id: data.id,
+    name: data.name,
+    contact: data.contact || { phone: '', email: '' },
+    tripDetails: data.trip_details || {},
+    preferences: data.preferences || {},
+    commercials: data.commercials,
+    vendors: data.vendors || [],
+    status: data.status,
+    temperature: data.temperature,
+    source: data.source,
+    interestedServices: data.interested_services || [],
+    referenceName: data.reference_name,
+    assignedTo: data.assigned_to,
+    tags: data.tags || [],
+    createdAt: data.created_at,
+    lastStatusUpdate: data.last_status_update
+  });
+
+  const mapLeadToDB = (lead: Partial<Lead>) => {
+    const dbObj: any = { ...lead };
+    // Map camelCase to snake_case for specific columns
+    if (lead.tripDetails) dbObj.trip_details = lead.tripDetails;
+    if (lead.interestedServices) dbObj.interested_services = lead.interestedServices;
+    if (lead.referenceName) dbObj.reference_name = lead.referenceName;
+    if (lead.assignedTo) dbObj.assigned_to = lead.assignedTo;
+    if (lead.lastStatusUpdate) dbObj.last_status_update = lead.lastStatusUpdate;
+    if (lead.createdAt) dbObj.created_at = lead.createdAt;
+
+    // Remove app-specific keys that aren't columns
+    delete dbObj.tripDetails;
+    delete dbObj.interestedServices;
+    delete dbObj.referenceName;
+    delete dbObj.assignedTo;
+    delete dbObj.lastStatusUpdate;
+    delete dbObj.createdAt;
+
+    return dbObj;
+  };
+
+  // --- Fetch Logic ---
+  const fetchLeads = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Supabase fetch error:', error);
+        throw error;
+      }
+
+      if (data) {
+        setInternalLeads(data.map(mapLeadFromDB));
+      }
+    } catch (err) {
+      console.error('Failed to fetch leads:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeads();
+  }, []);
 
   const visibleLeads = useMemo(() => {
       if (!user) return [];
@@ -85,82 +159,148 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setActivityLogs(prev => [newLog, ...prev]);
   };
 
-  const addLead = (lead: Lead) => {
+  // --- Actions ---
+
+  const addLead = async (lead: Lead) => {
     const leadWithAssignment = {
         ...lead,
         lastStatusUpdate: lead.lastStatusUpdate || new Date().toISOString(),
         assignedTo: user?.role === 'agent' ? user.name : (lead.assignedTo || 'Unassigned')
     };
+
+    // Optimistic Update
     setInternalLeads(prev => [leadWithAssignment, ...prev]);
-    logActivity('NEW_LEAD', leadWithAssignment, `Created new lead: ${leadWithAssignment.name}`);
+
+    try {
+        const dbPayload = mapLeadToDB(leadWithAssignment);
+        const { error } = await supabase.from('leads').insert([dbPayload]);
+        
+        if (error) throw error;
+        
+        logActivity('NEW_LEAD', leadWithAssignment, `Created new lead: ${leadWithAssignment.name}`);
+    } catch (err) {
+        console.error('Supabase Add Error:', err);
+        // Revert or Refetch
+        fetchLeads();
+    }
   };
 
-  const addLeads = (newLeads: Lead[]) => {
+  const addLeads = async (newLeads: Lead[]) => {
       const leadsWithTimestamp = newLeads.map(l => ({
           ...l,
           lastStatusUpdate: l.lastStatusUpdate || new Date().toISOString(),
           assignedTo: user?.role === 'agent' ? user.name : (l.assignedTo || 'Unassigned')
       }));
+
+      // Optimistic
       setInternalLeads(prev => [...leadsWithTimestamp, ...prev]);
-      if (leadsWithTimestamp.length > 0) {
-          logActivity('NEW_LEAD', leadsWithTimestamp[0], `Imported ${leadsWithTimestamp.length} leads`);
+
+      try {
+          const dbPayloads = leadsWithTimestamp.map(mapLeadToDB);
+          const { error } = await supabase.from('leads').insert(dbPayloads);
+          
+          if (error) throw error;
+
+          if (leadsWithTimestamp.length > 0) {
+              logActivity('NEW_LEAD', leadsWithTimestamp[0], `Imported ${leadsWithTimestamp.length} leads`);
+          }
+      } catch (err) {
+          console.error('Supabase Bulk Add Error:', err);
+          fetchLeads();
       }
   };
 
-  const updateLead = (id: string, updates: Partial<Lead>) => {
+  const updateLead = async (id: string, updates: Partial<Lead>) => {
+    // Optimistic
     setInternalLeads(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+
+    try {
+        const dbUpdates = mapLeadToDB(updates);
+        const { error } = await supabase.from('leads').update(dbUpdates).eq('id', id);
+        
+        if (error) throw error;
+    } catch (err) {
+        console.error('Supabase Update Error:', err);
+        fetchLeads();
+    }
   };
 
-  const updateLeadStatus = (id: string, status: LeadStatus, customLog?: string) => {
+  const updateLeadStatus = async (id: string, status: LeadStatus, customLog?: string) => {
     const currentLead = internalLeads.find(l => l.id === id);
     const oldStatus = currentLead?.status;
+    const newTimestamp = new Date().toISOString();
 
+    // Optimistic
     setInternalLeads(prev => prev.map(l => l.id === id ? { 
         ...l, 
         status, 
-        lastStatusUpdate: new Date().toISOString() 
+        lastStatusUpdate: newTimestamp 
     } : l));
     
-    // Interaction Log
+    // Log Interaction
     const interaction: Interaction = {
       id: generateId(),
       leadId: id,
       type: 'StatusChange',
       content: customLog || `Status updated to ${status}`,
-      timestamp: new Date().toISOString(),
+      timestamp: newTimestamp,
       sentiment: 'Neutral'
     };
     addInteraction(interaction);
 
-    if (currentLead) {
-        logActivity(
-            'STATUS_CHANGE', 
-            currentLead, 
-            `Moved ${currentLead.name} from ${oldStatus} -> ${status}`,
-            { oldStatus, newStatus: status }
-        );
+    try {
+        const { error } = await supabase.from('leads').update({
+            status: status,
+            last_status_update: newTimestamp
+        }).eq('id', id);
 
-        // --- SMART REMINDER NUDGE TRIGGER ---
-        // Only trigger for actionable stages, not Lost/New
-        if (status !== 'Lost' && status !== 'New') {
-            setNudge({
-                isOpen: true,
-                leadId: currentLead.id,
-                leadName: currentLead.name,
-                status: status
-            });
+        if (error) throw error;
+
+        if (currentLead) {
+            logActivity(
+                'STATUS_CHANGE', 
+                currentLead, 
+                `Moved ${currentLead.name} from ${oldStatus} -> ${status}`,
+                { oldStatus, newStatus: status }
+            );
+
+            // Nudge Logic
+            if (status !== 'Lost' && status !== 'New') {
+                setNudge({
+                    isOpen: true,
+                    leadId: currentLead.id,
+                    leadName: currentLead.name,
+                    status: status
+                });
+            }
         }
+    } catch (err) {
+        console.error('Supabase Status Update Error:', err);
+        fetchLeads();
     }
   };
 
-  const closeNudge = () => {
-      setNudge(prev => ({ ...prev, isOpen: false }));
+  const deleteLead = async (id: string) => {
+    // Optimistic
+    setInternalLeads(prev => prev.filter(l => l.id !== id));
+    
+    try {
+        const { error } = await supabase.from('leads').delete().eq('id', id);
+        if (error) throw error;
+
+        // Cleanup local state
+        setInteractions(prev => prev.filter(i => i.leadId !== id));
+        setReminders(prev => prev.filter(r => r.leadId !== id));
+    } catch (err) {
+        console.error('Supabase Delete Error:', err);
+        fetchLeads();
+    }
   };
 
-  const deleteLead = (id: string) => {
-    setInternalLeads(prev => prev.filter(l => l.id !== id));
-    setInteractions(prev => prev.filter(i => i.leadId !== id));
-    setReminders(prev => prev.filter(r => r.leadId !== id));
+  // --- Local State Helpers (Unchanged) ---
+
+  const closeNudge = () => {
+      setNudge(prev => ({ ...prev, isOpen: false }));
   };
 
   const addInteraction = (interaction: Interaction) => {
@@ -219,6 +359,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       reminders,
       suppliers,
       activityLogs,
+      isLoading,
       addLead,
       addLeads,
       updateLead,
