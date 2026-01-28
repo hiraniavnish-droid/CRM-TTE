@@ -559,7 +559,7 @@ export const LeadDetails = () => {
                   <Button variant="ghost" onClick={() => navigate('/leads')} className="p-0 h-auto hover:bg-transparent opacity-50 hover:opacity-100">
                       <ArrowLeft size={20} />
                   </Button>
-                  <h1 className={cn("text-3xl font-bold font-serif tracking-tight", getTextColor())}>{lead.name}</h1>
+                  <h1 className={cn("text-xl md:text-3xl font-bold font-serif tracking-tight", getTextColor())}>{lead.name}</h1>
                   <span className={cn(
                       "text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded border",
                       lead.temperature === 'Hot' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-slate-100 text-slate-600 border-slate-200'

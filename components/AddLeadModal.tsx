@@ -186,6 +186,11 @@ export const AddLeadModal = () => {
       setAddLeadModalOpen(false);
   };
 
+  const inputClasses = cn(
+      "w-full rounded-lg px-3 py-2 text-sm md:p-3 md:text-base outline-none transition-all border",
+      getInputClass()
+  );
+
   return (
     <>
       {showToast && (
@@ -214,11 +219,11 @@ export const AddLeadModal = () => {
             <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Client Name</label>
-                    <input name="name" required className={cn("w-full p-3 outline-none transition-all border", getInputClass())} placeholder="John Doe" />
+                    <input name="name" required className={inputClasses} placeholder="John Doe" />
                 </div>
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Source</label>
-                    <select name="source" className={cn("w-full p-3 outline-none transition-all border", getInputClass(), "[&>option]:text-black")}>
+                    <select name="source" className={cn(inputClasses, "[&>option]:text-black")}>
                         <option value="Instagram">Instagram</option>
                         <option value="Walk-in">Walk-in</option>
                         <option value="Referral">Referral</option>
@@ -230,11 +235,11 @@ export const AddLeadModal = () => {
             <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Phone</label>
-                    <input name="phone" defaultValue="+91 " className={cn("w-full p-3 outline-none transition-all border", getInputClass())} placeholder="+91 ..." />
+                    <input name="phone" defaultValue="+91 " className={inputClasses} placeholder="+91 ..." />
                 </div>
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Email <span className="text-[10px] opacity-50 font-normal normal-case ml-1">(Optional)</span></label>
-                    <input name="email" type="email" className={cn("w-full p-3 outline-none transition-all border", getInputClass())} placeholder="email@example.com" />
+                    <input name="email" type="email" className={inputClasses} placeholder="email@example.com" />
                 </div>
             </div>
 
@@ -269,7 +274,7 @@ export const AddLeadModal = () => {
             <div className="grid grid-cols-2 gap-5">
                  <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Temperature</label>
-                    <select name="temperature" className={cn("w-full p-3 outline-none transition-all border", getInputClass(), "[&>option]:text-black")}>
+                    <select name="temperature" className={cn(inputClasses, "[&>option]:text-black")}>
                         <option value="Hot">Hot (Ready to buy)</option>
                         <option value="Warm">Warm (Interested)</option>
                         <option value="Cold">Cold (Future)</option>
@@ -280,14 +285,14 @@ export const AddLeadModal = () => {
                         {user?.role === 'admin' ? 'Assign To' : 'Reference Name'}
                     </label>
                     {user?.role === 'admin' ? (
-                        <select name="assignedTo" className={cn("w-full p-3 outline-none transition-all border", getInputClass(), "[&>option]:text-black")}>
+                        <select name="assignedTo" className={cn(inputClasses, "[&>option]:text-black")}>
                             <option value="Unassigned">Unassigned</option>
                             {users.filter(u => u.role === 'agent').map(u => (
                                 <option key={u.id} value={u.name}>{u.name}</option>
                             ))}
                         </select>
                     ) : (
-                        <input name="reference" className={cn("w-full p-3 outline-none transition-all border", getInputClass())} placeholder="Optional" />
+                        <input name="reference" className={inputClasses} placeholder="Optional" />
                     )}
                 </div>
             </div>

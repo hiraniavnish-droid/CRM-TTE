@@ -615,6 +615,11 @@ export const Leads = () => {
     }),
   };
 
+  const inputClasses = cn(
+      "w-full rounded-lg px-3 py-2 text-sm md:p-3 md:text-base outline-none transition-all border",
+      getInputClass()
+  );
+
   return (
     <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 relative">
       
@@ -643,7 +648,7 @@ export const Leads = () => {
       {/* Header and Controls ... (Unchanged) */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 className={cn("text-4xl font-bold font-serif", getTextColor())}>Leads</h1>
+            <h1 className={cn("text-2xl md:text-4xl font-bold font-serif", getTextColor())}>Leads</h1>
             <p className={cn("text-sm mt-1 opacity-70", getTextColor())}>Manage and track your opportunities</p>
         </div>
         
@@ -920,11 +925,11 @@ export const Leads = () => {
             <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Client Name</label>
-                    <input name="name" required className={cn("w-full rounded-lg p-3 outline-none transition-all border", getInputClass())} placeholder="John Doe" />
+                    <input name="name" required className={inputClasses} placeholder="John Doe" />
                 </div>
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Source</label>
-                    <select name="source" className={cn("w-full rounded-lg p-3 outline-none transition-all border", getInputClass(), "[&>option]:text-black")}>
+                    <select name="source" className={cn(inputClasses, "[&>option]:text-black")}>
                         <option value="Instagram">Instagram</option>
                         <option value="Walk-in">Walk-in</option>
                         <option value="Referral">Referral</option>
@@ -936,11 +941,11 @@ export const Leads = () => {
             <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Phone</label>
-                    <input name="phone" defaultValue="+91 " className={cn("w-full rounded-lg p-3 outline-none transition-all border", getInputClass())} placeholder="+91 ..." />
+                    <input name="phone" defaultValue="+91 " className={inputClasses} placeholder="+91 ..." />
                 </div>
                 <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Email <span className="text-[10px] opacity-50 font-normal normal-case ml-1">(Optional)</span></label>
-                    <input name="email" type="email" className={cn("w-full rounded-lg p-3 outline-none transition-all border", getInputClass())} placeholder="email@example.com" />
+                    <input name="email" type="email" className={inputClasses} placeholder="email@example.com" />
                 </div>
             </div>
 
@@ -975,7 +980,7 @@ export const Leads = () => {
             <div className="grid grid-cols-2 gap-5">
                  <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Temperature</label>
-                    <select name="temperature" className={cn("w-full rounded-lg p-3 outline-none transition-all border", getInputClass(), "[&>option]:text-black")}>
+                    <select name="temperature" className={cn(inputClasses, "[&>option]:text-black")}>
                         <option value="Hot">Hot (Ready to buy)</option>
                         <option value="Warm">Warm (Interested)</option>
                         <option value="Cold">Cold (Future)</option>
@@ -983,12 +988,12 @@ export const Leads = () => {
                 </div>
                  <div className="space-y-1.5">
                     <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Reference Name</label>
-                    <input name="reference" className={cn("w-full rounded-lg p-3 outline-none transition-all border", getInputClass())} placeholder="Optional" />
+                    <input name="reference" className={inputClasses} placeholder="Optional" />
                 </div>
                 {user?.role === 'admin' && (
                     <div className="space-y-1.5 col-span-2">
                         <label className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Assign To</label>
-                        <select name="assignedTo" className={cn("w-full rounded-lg p-3 outline-none transition-all border", getInputClass(), "[&>option]:text-black")}>
+                        <select name="assignedTo" className={cn(inputClasses, "[&>option]:text-black")}>
                             <option value="Unassigned">Unassigned</option>
                             {/* Assuming users are available here via context, but we need to pass them or access context */}
                             <option value={user.name}>Me ({user.name})</option>

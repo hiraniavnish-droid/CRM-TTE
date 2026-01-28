@@ -36,7 +36,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const sizes = {
     sm: 'px-3 h-8 text-xs font-medium',
-    md: 'px-5 h-10 text-sm font-semibold', 
+    md: 'px-3 h-9 text-sm md:px-5 md:h-10 font-semibold', // Responsive: Compact on Mobile, Standard on Desktop
     lg: 'px-6 h-12 text-base font-semibold'
   };
 

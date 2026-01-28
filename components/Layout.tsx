@@ -88,7 +88,7 @@ export const Layout = () => {
 
       {/* MOBILE HEADER */}
       <header className={cn(
-        "md:hidden flex items-center justify-between p-4 sticky top-0 z-30 border-b transition-colors",
+        "md:hidden flex items-center justify-between p-3 sticky top-0 z-30 border-b transition-colors",
         theme === 'light' ? 'bg-white/80 backdrop-blur-md border-slate-200' : 'bg-slate-900/90 border-white/10'
       )}>
         <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export const Layout = () => {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden h-[calc(100vh-64px)] md:h-screen relative z-10 pb-24 md:pb-12 scroll-smooth">
-        <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
+        <div className="p-3 md:p-6 max-w-7xl mx-auto space-y-6 md:space-y-8 text-sm md:text-base">
             <Outlet />
         </div>
       </main>

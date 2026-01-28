@@ -667,7 +667,7 @@ export const Dashboard = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h1 className={cn("text-3xl font-bold font-serif text-gray-800", getTextColor())}>
+          <h1 className={cn("text-xl md:text-3xl font-bold font-serif text-gray-800", getTextColor())}>
               {getGreeting(user?.name || 'Expert')}
           </h1>
           <p className={cn("text-sm italic opacity-60 mt-1 font-medium", getTextColor())}>
