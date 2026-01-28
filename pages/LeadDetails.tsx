@@ -171,9 +171,10 @@ const CommercialsView: React.FC<CommercialsViewProps> = ({ lead, commercials, on
                             </div>
                         </div>
                     </div>
-                </Card>
+                </div>
+            </Card>
 
-                <Card className={cn("transition-all duration-500 border", marginBg || "border-transparent")}>
+            <Card className={cn("transition-all duration-500 border", marginBg || "border-transparent")}>
                 <div className="flex items-center gap-2 mb-6 border-b border-gray-500/10 pb-4">
                     <div className={cn("p-2 rounded-lg", theme === 'light' ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-500/20 text-emerald-300')}>
                         <TrendingUp size={20} />
@@ -768,7 +769,7 @@ export const LeadDetails = () => {
               {/* Tasks List */}
               <Card noPadding className="max-h-[300px] flex flex-col">
                   <div className="p-4 border-b border-gray-500/10 flex justify-between items-center bg-gray-50/50">
-                      <span className={cn("text-xs font-bold uppercase tracking-wider opacity-60", getTextColor())}>Pending Tasks</span>
+                      <span className={cn("text-xs font-bold uppercase tracking-wider opacity-60 text-slate-900")}>Pending Tasks</span>
                       <span className="text-xs bg-slate-200 px-2 py-0.5 rounded-full font-bold text-slate-600">{reminders.filter(r => !r.isCompleted).length}</span>
                   </div>
                   <div className="overflow-y-auto p-2 space-y-1">
