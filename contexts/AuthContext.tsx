@@ -1,0 +1,112 @@
+
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { User } from '../types';
+import { generateId } from '../utils/helpers';
+
+interface AuthContextType {
+  user: User | null;
+  users: User[];
+  login: (passcode: string) => boolean;
+  logout: () => void;
+  addUser: (name: string, passcode: string) => void;
+  removeUser: (id: string) => void;
+  updateUserPasscode: (id: string, newPasscode: string) => void;
+  isAuthenticated: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Initial User Set
+const DEFAULT_USERS: User[] = [
+  { id: '1', name: 'Admin', role: 'admin', passcode: 'admin999' },
+  { id: '2', name: 'Sonali', role: 'agent', passcode: 'sonali123' },
+  { id: '3', name: 'Vraj', role: 'agent', passcode: 'vraj123' }
+];
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>(DEFAULT_USERS);
+
+  // Initialize: Load users and current session from localStorage
+  useEffect(() => {
+    const storedUsers = localStorage.getItem('voyageos_users_list');
+    if (storedUsers) {
+      setUsers(JSON.parse(storedUsers));
+    } else {
+      // First run: save defaults
+      localStorage.setItem('voyageos_users_list', JSON.stringify(DEFAULT_USERS));
+    }
+
+    const storedUser = localStorage.getItem('voyageos_user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  // Sync users to local storage whenever they change
+  useEffect(() => {
+    localStorage.setItem('voyageos_users_list', JSON.stringify(users));
+  }, [users]);
+
+  const login = (passcode: string): boolean => {
+    // Dynamic lookup instead of hardcoded config
+    const matchedUser = users.find(u => u.passcode === passcode);
+    
+    if (matchedUser) {
+      setUser(matchedUser);
+      localStorage.setItem('voyageos_user', JSON.stringify(matchedUser));
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('voyageos_user');
+  };
+
+  const addUser = (name: string, passcode: string) => {
+    // Ensure name is unique
+    if (users.some(u => u.name.toLowerCase() === name.toLowerCase())) {
+        alert('User with this name already exists.');
+        return;
+    }
+
+    const newUser: User = {
+      id: generateId(),
+      name,
+      role: 'agent', // Default role
+      passcode
+    };
+    setUsers(prev => [...prev, newUser]);
+  };
+
+  const removeUser = (id: string) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  const updateUserPasscode = (id: string, newPasscode: string) => {
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, passcode: newPasscode } : u));
+  };
+
+  return (
+    <AuthContext.Provider value={{ 
+        user, 
+        users, 
+        login, 
+        logout, 
+        addUser, 
+        removeUser, 
+        updateUserPasscode, 
+        isAuthenticated: !!user 
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  return context;
+};
