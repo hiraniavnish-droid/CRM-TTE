@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLeads } from '../contexts/LeadContext';
 import { addDays, format, addMinutes } from 'date-fns';
@@ -22,6 +23,9 @@ const setMinutesFn = (date: Date | number, minutes: number): Date => {
 
 export const SmartNudge = () => {
   const { nudge, closeNudge, addReminder } = useLeads();
+  
+  // Cast motion.div to any to avoid TypeScript errors
+  const MotionDiv = motion.div as any;
   
   // State
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -127,7 +131,7 @@ export const SmartNudge = () => {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         
         {/* Backdrop */}
-        <motion.div 
+        <MotionDiv 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -137,7 +141,7 @@ export const SmartNudge = () => {
 
         {/* Compact Card - Changed overflow-hidden to overflow-visible to prevent clipping */}
         <AnimatePresence mode="wait">
-            <motion.div
+            <MotionDiv
                 key="unified-scheduler"
                 layout
                 initial={{ y: 20, opacity: 0, scale: 0.95 }}
@@ -201,7 +205,7 @@ export const SmartNudge = () => {
 
                         <AnimatePresence>
                             {isCustomExpanded && (
-                                <motion.div 
+                                <MotionDiv 
                                     initial={{ height: 0, opacity: 0 }}
                                     animate={{ height: "auto", opacity: 1 }}
                                     exit={{ height: 0, opacity: 0 }}
@@ -255,7 +259,7 @@ export const SmartNudge = () => {
                                         {/* Floating Date Picker (Absolute) */}
                                         <AnimatePresence>
                                             {activeMode === 'date' && (
-                                                <motion.div
+                                                <MotionDiv
                                                     initial={{ opacity: 0, y: 10, scale: 0.95 }} // Start slightly below
                                                     animate={{ opacity: 1, y: 0, scale: 1 }}     // Slide UP
                                                     exit={{ opacity: 0, y: 10, scale: 0.95 }}    // Slide DOWN
@@ -278,14 +282,14 @@ export const SmartNudge = () => {
                                                         onSelect={(d) => { if (d) { setSelectedDate(d); setActiveMode('none'); } }}
                                                         showOutsideDays
                                                     />
-                                                </motion.div>
+                                                </MotionDiv>
                                             )}
                                         </AnimatePresence>
 
                                         {/* Horizontal Time Scroller (Inline Expand) */}
                                         <AnimatePresence>
                                             {activeMode === 'time' && (
-                                                <motion.div
+                                                <MotionDiv
                                                     initial={{ height: 0, opacity: 0, marginTop: 0 }}
                                                     animate={{ height: "auto", opacity: 1, marginTop: 12 }}
                                                     exit={{ height: 0, opacity: 0, marginTop: 0 }}
@@ -327,12 +331,12 @@ export const SmartNudge = () => {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                </motion.div>
+                                                </MotionDiv>
                                             )}
                                         </AnimatePresence>
 
                                     </div>
-                                </motion.div>
+                                </MotionDiv>
                             )}
                         </AnimatePresence>
                     </div>
@@ -355,7 +359,7 @@ export const SmartNudge = () => {
                     </button>
 
                 </div>
-            </motion.div>
+            </MotionDiv>
         </AnimatePresence>
     </div>
   );

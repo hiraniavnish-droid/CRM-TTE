@@ -378,7 +378,7 @@ export const Leads = () => {
     setActiveId(event.active.id as string);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
@@ -396,7 +396,18 @@ export const Leads = () => {
                     return; // Halt status change
                 }
             }
-            updateLeadStatus(leadId, newStatus);
+            
+            try {
+                // Persistent Drag-and-Drop: Optimistic UI + Backend Sync via Context
+                await updateLeadStatus(leadId, newStatus);
+            } catch (error) {
+                // Error Handling: Show Toast (Revert is handled by context fetchLeads)
+                setShowToast({ 
+                    message: "Failed to update status. Changes reverted.", 
+                    type: 'error' 
+                });
+                setTimeout(() => setShowToast(null), 3000);
+            }
         }
     }
   };

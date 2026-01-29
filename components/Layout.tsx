@@ -34,6 +34,9 @@ export const Layout = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Cast motion.div to any to avoid TypeScript errors with framer-motion props in this environment
+  const MotionDiv = motion.div as any;
 
   const handleLogout = () => {
       logout();
@@ -164,7 +167,7 @@ export const Layout = () => {
               >
                 {/* 1. The Floating Background Pill (Gliding) */}
                 {isActive && (
-                  <motion.div
+                  <MotionDiv
                     layoutId="active-bg"
                     className={cn(
                       "absolute inset-0 rounded-xl z-0",
@@ -177,7 +180,7 @@ export const Layout = () => {
                 )}
 
                 {/* 2. Content Container (Poppy Scale) */}
-                <motion.div
+                <MotionDiv
                     animate={{ scale: isActive ? 1.02 : 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                     className={cn(
@@ -196,7 +199,7 @@ export const Layout = () => {
                         strokeWidth={isActive ? 2.5 : 2}
                     />
                     <span className="text-sm tracking-tight">{item.label}</span>
-                </motion.div>
+                </MotionDiv>
               </Link>
             );
           })}

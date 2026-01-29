@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useLeads } from '../contexts/LeadContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -100,6 +101,9 @@ const ActionableTaskRow = ({ reminder, lead, onToggle, onSnooze, isOverdue }: an
     const { theme, getTextColor } = useTheme();
     const [showSnooze, setShowSnooze] = useState(false);
     const [isCompleting, setIsCompleting] = useState(false);
+    
+    // Cast motion.div to any to avoid TypeScript errors
+    const MotionDiv = motion.div as any;
 
     // 1. Context Extraction
     const { icon: TaskIcon, color: iconColor } = getTaskType(reminder.task);
@@ -132,7 +136,7 @@ const ActionableTaskRow = ({ reminder, lead, onToggle, onSnooze, isOverdue }: an
     if (reminder.isCompleted && !isCompleting) return null; // Or render differently if showing history
 
     return (
-        <motion.div 
+        <MotionDiv 
             layout
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -250,7 +254,7 @@ const ActionableTaskRow = ({ reminder, lead, onToggle, onSnooze, isOverdue }: an
                     </button>
                 </div>
             </div>
-        </motion.div>
+        </MotionDiv>
     );
 };
 

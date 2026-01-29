@@ -177,8 +177,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
         // 2. Strict Payload Sanitization
-        // Cast to 'any' to allow extracting potential flat fields (e.g. from CSV import) 
-        // OR fallback to nested structure from App types.
         const l = lead as any;
         
         // Calculate pax from nested config if not provided directly
@@ -201,10 +199,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             sanitizedLead.assigned_to = assignee;
         }
 
-        // 3. Debug Log
-        console.log('Sending to Supabase:', sanitizedLead);
-
-        // 4. Insert
+        // 3. Insert
         const { error } = await supabase.from('leads').insert([sanitizedLead]);
         
         if (error) {
@@ -221,10 +216,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const addLeads = async (newLeads: Lead[]) => {
-      // Bulk import also likely needs strict sanitization if your schema is strict
-      // For now, retaining mostly original logic but mapped to new DB expectations?
-      // Use logic similar to addLead for safety if bulk import fails.
-      
       const leadsWithTimestamp = newLeads.map(l => ({
           ...l,
           lastStatusUpdate: l.lastStatusUpdate || new Date().toISOString(),
@@ -234,7 +225,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setInternalLeads(prev => [...leadsWithTimestamp, ...prev]);
 
       try {
-          // Attempting to use the new flat schema for bulk import as well
           const dbPayloads = leadsWithTimestamp.map((lead: any) => {
              const calculatedPax = (lead.tripDetails?.paxConfig?.adults || 0) + (lead.tripDetails?.paxConfig?.children || 0);
              return {
@@ -329,7 +319,10 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     } catch (err) {
         console.error('Supabase Status Update Error:', err);
-        fetchLeads();
+        // Revert state on error
+        await fetchLeads();
+        // Propagate error to let UI know
+        throw err;
     }
   };
 
