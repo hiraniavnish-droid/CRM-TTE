@@ -159,7 +159,7 @@ const LeadCard: React.FC<{ lead: Lead, isOverlay?: boolean, isDragging?: boolean
         <div className="flex justify-between items-start gap-3">
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-1">
-                    <h4 className={cn("font-bold truncate text-sm", getTextColor())}>{lead.name}</h4>
+                    <h4 className={cn("font-bold truncate text-sm capitalize", getTextColor())}>{lead.name}</h4>
                     {ServiceIcon && (
                         <span className={cn("opacity-50 shrink-0", getSecondaryTextColor())}>
                             <ServiceIcon size={12} />
@@ -230,7 +230,7 @@ const MobileLeadCard: React.FC<MobileLeadCardProps> = ({ lead, onStatusChange })
         urgencyClass
     )}>
        <div className="flex justify-between items-start mb-3">
-          <Link to={`/leads/${lead.id}`} className={cn("font-bold text-lg truncate flex-1 mr-2", getTextColor())}>
+          <Link to={`/leads/${lead.id}`} className={cn("font-bold text-lg truncate flex-1 mr-2 capitalize", getTextColor())}>
             {lead.name}
           </Link>
           
@@ -258,19 +258,19 @@ const MobileLeadCard: React.FC<MobileLeadCardProps> = ({ lead, onStatusChange })
        </div>
 
        <Link to={`/leads/${lead.id}`} className="block space-y-2 mb-4">
-           <div className={cn("flex items-center gap-2 text-sm", getSecondaryTextColor())}>
-               <MapPin size={16} className="opacity-70 text-blue-400" />
+           <div className={cn("flex items-center gap-2 text-sm font-medium", theme === 'light' ? 'text-slate-600' : 'text-slate-300')}>
+               <MapPin size={16} className={cn("shrink-0", theme === 'light' ? 'text-slate-500' : 'text-slate-400')} />
                <span>{lead.tripDetails.destination}</span>
            </div>
-           <div className={cn("flex items-center gap-2 text-sm", getSecondaryTextColor())}>
-               <Calendar size={16} className="opacity-70 text-purple-400" />
+           <div className={cn("flex items-center gap-2 text-sm font-medium", theme === 'light' ? 'text-slate-600' : 'text-slate-300')}>
+               <Calendar size={16} className={cn("shrink-0", theme === 'light' ? 'text-slate-500' : 'text-slate-400')} />
                <span>{formatDate(lead.tripDetails.startDate)}</span>
            </div>
        </Link>
 
        <div className="grid grid-cols-2 gap-3 mt-2">
            <a href={`tel:${lead.contact.phone}`} className={cn(
-               "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors border",
+               "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors border w-full",
                theme === 'light' 
                 ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
                 : 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20'
@@ -278,7 +278,7 @@ const MobileLeadCard: React.FC<MobileLeadCardProps> = ({ lead, onStatusChange })
                <Phone size={16} /> Call
            </a>
            <a href={waLink} target="_blank" rel="noreferrer" className={cn(
-               "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors border",
+               "flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors border w-full",
                theme === 'light' 
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
                 : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
@@ -632,7 +632,7 @@ export const Leads = () => {
   );
 
   return (
-    <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 relative">
+    <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 relative pt-2 md:pt-0">
       
        {/* Toast Notification */}
        {showToast && (
@@ -656,34 +656,36 @@ export const Leads = () => {
           onSave={handleVendorSave}
       />
 
-      {/* Header and Controls ... (Unchanged) */}
+      {/* Header and Controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 className={cn("text-2xl md:text-4xl font-bold font-serif", getTextColor())}>Leads</h1>
-            <p className={cn("text-sm mt-1 opacity-70", getTextColor())}>Manage and track your opportunities</p>
+            <h1 className={cn("text-2xl md:text-4xl font-bold font-serif mb-1", getTextColor())}>Leads</h1>
+            <p className={cn("text-sm opacity-70", getTextColor())}>Manage and track your opportunities</p>
         </div>
         
-        <div className="flex gap-3 flex-wrap">
-            <div className={cn("flex items-center rounded-xl p-1 border", theme === 'light' ? 'bg-white border-slate-200' : 'bg-white/5 border-white/10')}>
+        <div className="flex items-center gap-3 flex-wrap w-full md:w-auto h-12 md:h-auto">
+            {/* View Toggles */}
+            <div className={cn("flex items-center rounded-xl p-1 border h-10 md:h-11 flex-shrink-0", theme === 'light' ? 'bg-white border-slate-200' : 'bg-white/5 border-white/10')}>
                 <button 
                     onClick={() => setView('kanban')} 
-                    className={cn("p-2 rounded-lg transition-all min-h-[44px]", view === 'kanban' ? (theme === 'light' ? 'bg-slate-100 text-blue-600' : 'bg-white/20 text-white') : 'opacity-50 hover:opacity-100 text-gray-400')}
+                    className={cn("p-2 rounded-lg transition-all h-full w-10 flex items-center justify-center", view === 'kanban' ? (theme === 'light' ? 'bg-slate-100 text-blue-600' : 'bg-white/20 text-white') : 'opacity-50 hover:opacity-100 text-gray-400')}
                 >
                     <LayoutGrid size={20} />
                 </button>
                 <button 
                     onClick={() => setView('list')} 
-                    className={cn("p-2 rounded-lg transition-all min-h-[44px]", view === 'list' ? (theme === 'light' ? 'bg-slate-100 text-blue-600' : 'bg-white/20 text-white') : 'opacity-50 hover:opacity-100 text-gray-400')}
+                    className={cn("p-2 rounded-lg transition-all h-full w-10 flex items-center justify-center", view === 'list' ? (theme === 'light' ? 'bg-slate-100 text-blue-600' : 'bg-white/20 text-white') : 'opacity-50 hover:opacity-100 text-gray-400')}
                 >
                     <LayoutList size={20} />
                 </button>
             </div>
-            {/* Filter and Add Button ... (Unchanged) */}
-            <div className="relative group z-30">
-                <Button variant="secondary" className="gap-2 h-11">
+
+            {/* Filter */}
+            <div className="relative group z-30 h-10 md:h-11">
+                <Button variant="secondary" className="gap-2 h-full border border-slate-200 shadow-none bg-white hover:bg-slate-50 text-slate-600">
                     <Filter size={18} /> Filter
                 </Button>
-                {/* Filter Dropdown ... */}
+                {/* Filter Dropdown */}
                 <div className={cn(
                     "absolute top-full right-0 mt-2 w-56 rounded-xl shadow-2xl p-3 hidden group-hover:block backdrop-blur-xl border",
                      theme === 'light' ? 'bg-white/90 border-slate-200' : 'bg-gray-900/90 border-white/10'
@@ -722,7 +724,7 @@ export const Leads = () => {
                 </div>
             </div>
 
-            <Button onClick={handleOpenModal} className="hidden md:flex shadow-lg shadow-blue-500/20 h-11">
+            <Button onClick={handleOpenModal} className="hidden md:flex shadow-lg shadow-blue-500/20 h-10 md:h-11">
                 <Plus size={18} /> Add Lead
             </Button>
         </div>
@@ -782,25 +784,29 @@ export const Leads = () => {
             </div>
 
             <div className="md:hidden flex flex-col h-full">
-                 {/* Mobile Kanban ... */}
-                 <div className="flex gap-2 overflow-x-auto pb-4 px-1 no-scrollbar">
-                     {STATUS_COLUMNS.map(status => (
-                         <button
-                            key={status}
-                            onClick={() => setActiveMobileStatus(status as LeadStatus)}
-                            className={cn(
-                                "whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold border transition-all min-h-[44px]",
-                                activeMobileStatus === status
-                                    ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/30"
-                                    : (theme === 'light' ? "bg-white text-slate-500 border-slate-200" : "bg-white/5 text-white/60 border-white/10")
-                            )}
-                         >
-                            {status}
-                         </button>
-                     ))}
+                 {/* Mobile Kanban Tabs */}
+                 <div className="relative">
+                     <div className="flex gap-2 overflow-x-auto pb-4 px-1 no-scrollbar items-center">
+                         {STATUS_COLUMNS.map(status => (
+                             <button
+                                key={status}
+                                onClick={() => setActiveMobileStatus(status as LeadStatus)}
+                                className={cn(
+                                    "whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold border transition-all min-h-[44px]",
+                                    activeMobileStatus === status
+                                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                                        : (theme === 'light' ? "bg-white text-slate-500 border-slate-200" : "bg-white/5 text-white/60 border-white/10")
+                                )}
+                             >
+                                {status}
+                             </button>
+                         ))}
+                     </div>
+                     {/* Scroll Hint Overlay */}
+                     <div className={cn("absolute right-0 top-0 bottom-4 w-12 pointer-events-none bg-gradient-to-l", theme === 'light' ? "from-slate-50 to-transparent" : "from-slate-900 to-transparent")} />
                  </div>
                  
-                 <div className="flex-1 space-y-4 pb-20">
+                 <div className="flex-1 space-y-4 pb-32">
                      {filteredLeads
                         .filter(l => l.status === activeMobileStatus)
                         .map(lead => (
@@ -810,6 +816,14 @@ export const Leads = () => {
                                 onStatusChange={updateLeadStatus} 
                             />
                      ))}
+                     {filteredLeads.filter(l => l.status === activeMobileStatus).length === 0 && (
+                         <div className="text-center opacity-50 py-10 flex flex-col items-center gap-2">
+                             <div className={cn("w-12 h-12 rounded-full flex items-center justify-center", theme === 'light' ? 'bg-slate-100' : 'bg-white/5')}>
+                                 <LayoutList size={24} />
+                             </div>
+                             <p className="text-sm">No leads in {activeMobileStatus}</p>
+                         </div>
+                     )}
                  </div>
             </div>
         </>
@@ -901,7 +915,7 @@ export const Leads = () => {
                 </div>
             </Card>
 
-            <div className="md:hidden space-y-4 pb-20">
+            <div className="md:hidden space-y-4 pb-32">
                 {filteredLeads.map(lead => (
                     <MobileLeadCard 
                         key={lead.id} 

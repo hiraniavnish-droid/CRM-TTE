@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { DialButton } from '../components/ui/DialButton';
-import { Sparkline } from '../components/ui/Sparkline'; // Import Sparkline
+import { Sparkline } from '../components/ui/Sparkline';
 import { useLeads } from '../contexts/LeadContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency, formatCompactCurrency, cn, formatDate } from '../utils/helpers';
@@ -79,7 +79,6 @@ const ActivityMonitor = ({ logs }: { logs: ActivityLog[] }) => {
     const [customStart, setCustomStart] = useState<string>('');
     const [customEnd, setCustomEnd] = useState<string>('');
 
-    // ... (Keep existing filtering logic) ...
     // 1. Filter Logs by Timeframe
     const filteredLogs = useMemo(() => {
         const now = new Date();
@@ -156,13 +155,13 @@ const ActivityMonitor = ({ logs }: { logs: ActivityLog[] }) => {
                 </div>
 
                 <div className="flex flex-col items-end gap-3">
-                    <div className={cn("flex p-1 rounded-lg w-fit", theme === 'light' ? "bg-slate-100" : "bg-white/10")}>
+                    <div className={cn("flex w-full overflow-x-auto whitespace-nowrap no-scrollbar p-1 rounded-lg", theme === 'light' ? "bg-slate-100" : "bg-white/10")}>
                         {(['Today', 'Yesterday', 'This Week', 'Custom Range'] as ActivityRange[]).map((r) => (
                             <button
                                 key={r}
                                 onClick={() => setRange(r)}
                                 className={cn(
-                                    "px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap",
+                                    "px-3 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap flex-1 md:flex-none text-center",
                                     range === r 
                                         ? (theme === 'light' ? "bg-white shadow text-indigo-600" : "bg-white/20 text-white shadow") 
                                         : "opacity-50 hover:opacity-100"
@@ -254,7 +253,6 @@ const ActivityMonitor = ({ logs }: { logs: ActivityLog[] }) => {
             </div>
 
             {/* Timeline Drawer (Slide over) */}
-            {/* ... (Keep existing drawer) ... */}
             {selectedAgent && (
                 <>
                     <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={() => setSelectedAgent(null)} />
@@ -321,7 +319,6 @@ const AdminLeaderboard = ({ leads }: { leads: Lead[] }) => {
     const { theme, getTextColor } = useTheme();
     
     const agentStats = useMemo(() => {
-        // ... (Keep existing stats logic) ...
         const agents: Record<string, { name: string, leads: number, won: number, revenue: number }> = {};
         
         leads.forEach(l => {
@@ -338,7 +335,6 @@ const AdminLeaderboard = ({ leads }: { leads: Lead[] }) => {
         return Object.values(agents).sort((a, b) => b.revenue - a.revenue);
     }, [leads]);
 
-    // Pie Data
     const pieData = agentStats.map(a => ({ name: a.name, value: a.leads }));
     const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -376,11 +372,10 @@ const AdminLeaderboard = ({ leads }: { leads: Lead[] }) => {
                                         </div>
                                         {agent.name}
                                     </td>
-                                    {/* Sparkline Column */}
                                     <td className="py-4 text-center">
                                         <div className="w-20 mx-auto">
                                             <Sparkline 
-                                                data={[5, 10, 8, 15, 12, 20]} // Mock trend for now
+                                                data={[5, 10, 8, 15, 12, 20]} 
                                                 color={idx === 0 ? 'amber' : 'slate'}
                                                 height={24}
                                             />
@@ -403,7 +398,7 @@ const AdminLeaderboard = ({ leads }: { leads: Lead[] }) => {
 
             <Card className="flex flex-col items-center justify-center">
                 <h3 className={cn("font-bold font-serif mb-4 self-start", getTextColor())}>Lead Distribution</h3>
-                <div className="h-[200px] w-full">
+                <div className="h-[250px] md:h-[200px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
@@ -412,7 +407,7 @@ const AdminLeaderboard = ({ leads }: { leads: Lead[] }) => {
                                 outerRadius={80}
                                 paddingAngle={5}
                                 dataKey="value"
-                                label={({ name, value }) => `${value}`} // Visible label
+                                label={({ name, value }) => `${value}`} 
                             >
                                 {pieData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -445,27 +440,27 @@ const KPICard = ({ title, value, subtext, breakdown, icon: Icon, colorClass, onC
         <div 
             onClick={onClick}
             className={cn(
-                "p-5 rounded-xl border transition-all duration-300 group cursor-pointer relative overflow-hidden",
+                "p-4 md:p-5 rounded-xl border transition-all duration-300 group cursor-pointer relative overflow-hidden",
                 getCardBg(),
-                "border-white/5 hover:border-white/10"
+                "border-slate-100 hover:border-slate-200 shadow-sm" // Unified shadow/border
             )}
         >
             <div className="flex justify-between items-start mb-2">
-                <div className={cn("p-2.5 rounded-lg bg-opacity-20", colorClass)}>
-                    <Icon size={20} className="text-white" />
+                <div className={cn("p-2 rounded-lg bg-opacity-20", colorClass)}>
+                    <Icon size={18} className="text-white" />
                 </div>
                 {onClick && <ArrowRight size={16} className="opacity-0 group-hover:opacity-50 transition-opacity -translate-x-2 group-hover:translate-x-0" />}
             </div>
-            <div className="mt-2 relative z-10">
-                <p className={cn("text-xs font-bold uppercase tracking-wider opacity-60 mb-1", getTextColor())}>{title}</p>
-                <h3 className={cn("text-2xl font-bold font-serif font-mono tracking-tight", getTextColor())}>{value}</h3>
+            <div className="mt-1 relative z-10">
+                <p className={cn("text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-60 mb-0.5", getTextColor())}>{title}</p>
+                <h3 className={cn("text-xl md:text-2xl font-bold font-serif font-mono tracking-tight", getTextColor())}>{value}</h3>
                 
                 {breakdown ? (
-                    <div className={cn("text-[10px] mt-2 pt-2 border-t border-dashed border-gray-500/20 font-mono opacity-80", getTextColor())}>
+                    <div className={cn("text-[9px] md:text-[10px] mt-2 pt-2 border-t border-dashed border-gray-500/20 font-mono opacity-80", getTextColor())}>
                         {breakdown}
                     </div>
                 ) : (
-                    subtext && <p className={cn("text-[10px] mt-1 opacity-50", getTextColor())}>{subtext}</p>
+                    subtext && <p className={cn("text-[9px] md:text-[10px] mt-1 opacity-50 truncate", getTextColor())}>{subtext}</p>
                 )}
             </div>
         </div>
@@ -473,7 +468,6 @@ const KPICard = ({ title, value, subtext, breakdown, icon: Icon, colorClass, onC
 };
 
 // --- Logic Helpers ---
-// ... (Keep existing logic helpers) ...
 const getDashboardStats = (leads: Lead[], timeFilter: TimeFilter) => {
     const now = new Date();
     const filteredLeads = leads.filter(l => {
@@ -495,7 +489,6 @@ const getDashboardStats = (leads: Lead[], timeFilter: TimeFilter) => {
     let lostCount = 0;
     let pendingCount = 0;
     
-    // Breakdown objects
     const revenueByAgent: Record<string, number> = {};
 
     filteredLeads.forEach(l => {
@@ -533,7 +526,6 @@ const getDashboardStats = (leads: Lead[], timeFilter: TimeFilter) => {
     const prodMap = new Map<string, any>();
 
     filteredLeads.forEach(l => {
-        // Destination Logic
         if (l.tripDetails.destination) {
             const dest = l.tripDetails.destination;
             const key = dest.toLowerCase().trim();
@@ -546,7 +538,6 @@ const getDashboardStats = (leads: Lead[], timeFilter: TimeFilter) => {
                 data.revenue += (l.commercials?.sellingPrice || l.tripDetails.budget || 0);
             }
         }
-        // Product Logic
         let serviceType = 'Custom';
         if (l.interestedServices.includes('Holiday Package')) serviceType = 'Holiday Package';
         else if (l.interestedServices.length > 0) serviceType = l.interestedServices[0];
@@ -624,7 +615,6 @@ export const Dashboard = () => {
   const [opTab, setOpTab] = useState<OpTab>('Ongoing Now');
   const [viewAsAgent, setViewAsAgent] = useState<string>('all');
   
-  // Random Quote State
   const [quote, setQuote] = useState('');
   
   useEffect(() => {
@@ -642,7 +632,6 @@ export const Dashboard = () => {
 
   const handleNav = (path: string) => navigate(path);
 
-  // Derived Operational Data (Tasks & Hot Leads)
   const hotLeads = dashboardLeads
         .filter((l) => l.temperature === 'Hot' && l.status !== 'Won' && l.status !== 'Lost')
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -662,20 +651,20 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20 px-2 md:px-0">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
+        <div className="max-w-[70%] md:max-w-none pr-4 md:pr-0">
           <h1 className={cn("text-xl md:text-3xl font-bold font-serif text-gray-800", getTextColor())}>
               {getGreeting(user?.name || 'Expert')}
           </h1>
-          <p className={cn("text-sm italic opacity-60 mt-1 font-medium", getTextColor())}>
+          <p className={cn("text-sm italic opacity-60 mt-1 font-medium line-clamp-1 md:line-clamp-none", getTextColor())}>
               "{quote}"
           </p>
         </div>
         
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-wrap md:flex-col items-end gap-2 self-end md:self-auto">
             {/* CEO Mode Switcher */}
             {user?.role === 'admin' && (
                 <div className={cn(
@@ -683,7 +672,7 @@ export const Dashboard = () => {
                     viewAsAgent !== 'all' ? "bg-amber-50 border-amber-200" : (theme === 'light' ? "bg-white border-slate-200" : "bg-white/10 border-white/20")
                 )}>
                     <Eye size={14} className={viewAsAgent !== 'all' ? "text-amber-600" : "opacity-50"} />
-                    <span className={cn("text-xs font-bold uppercase tracking-wider opacity-70", viewAsAgent !== 'all' && "text-amber-700")}>Viewing:</span>
+                    <span className={cn("text-xs font-bold uppercase tracking-wider opacity-70 hidden md:inline", viewAsAgent !== 'all' && "text-amber-700")}>Viewing:</span>
                     <select 
                         value={viewAsAgent}
                         onChange={(e) => setViewAsAgent(e.target.value)}
@@ -693,7 +682,7 @@ export const Dashboard = () => {
                             "[&>option]:text-black"
                         )}
                     >
-                        <option value="all">All Agents (Global)</option>
+                        <option value="all">Global</option>
                         {users.filter(u => u.role === 'agent').map(u => (
                             <option key={u.id} value={u.name}>{u.name}</option>
                         ))}
@@ -708,7 +697,7 @@ export const Dashboard = () => {
                         key={tf}
                         onClick={() => setTimeFilter(tf)}
                         className={cn(
-                            "px-3 py-1.5 rounded-md text-xs font-bold transition-all",
+                            "px-2 md:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all whitespace-nowrap",
                             timeFilter === tf 
                                 ? (theme === 'light' ? "bg-white shadow text-blue-600" : "bg-white/20 text-white shadow") 
                                 : "opacity-50 hover:opacity-100"
@@ -734,12 +723,12 @@ export const Dashboard = () => {
       )}
 
       {/* --- COMMON: KPIs --- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <KPICard 
             title={user?.role === 'admin' && viewAsAgent === 'all' ? "Total Revenue" : "Revenue"}
             value={formatCurrency(stats.totalRevenue)} 
             subtext="Closed Won Deals"
-            breakdown={getRevenueBreakdown()} // Pass breakdown
+            breakdown={getRevenueBreakdown()} 
             icon={DollarSign} 
             colorClass="bg-emerald-500" 
           />
@@ -772,7 +761,6 @@ export const Dashboard = () => {
           "grid grid-cols-1 xl:grid-cols-4 gap-6",
           viewAsAgent !== 'all' && "border-2 border-dashed border-amber-500/20 p-4 rounded-3xl relative"
       )}>
-          {/* ... (Funnel Chart is unchanged structurally) ... */}
           <Card className="xl:col-span-1 min-h-[300px] flex flex-col">
               <div className="flex items-center gap-2 mb-6">
                   <div className={cn("p-1.5 rounded bg-blue-500/10 text-blue-500")}>
@@ -789,7 +777,7 @@ export const Dashboard = () => {
                     <YAxis 
                       dataKey="name" 
                       type="category" 
-                      width={90}
+                      width={80}
                       tick={{ fill: theme === 'light' ? '#64748b' : 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 600 }}
                       axisLine={false}
                       tickLine={false}
@@ -804,7 +792,7 @@ export const Dashboard = () => {
                             fontSize: '12px'
                         }} 
                     />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} onClick={(data) => handleNav(`/leads?status=${data.name}`)}>
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} onClick={(data) => handleNav(`/leads?status=${data.name}`)}>
                         <LabelList dataKey="value" position="right" style={{ fontSize: '10px', fill: theme === 'light' ? '#64748b' : '#94a3b8', fontWeight: 'bold' }} />
                         {stats.funnelData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={theme === 'light' ? '#3b82f6' : '#60a5fa'} className="cursor-pointer hover:opacity-80 transition-opacity" />
@@ -842,7 +830,6 @@ export const Dashboard = () => {
                                       <td className="py-3 pl-2 font-medium cursor-pointer truncate max-w-[100px]" title={prod.name} onClick={() => handleNav(`/leads?service=${prod.name}`)}>
                                           {prod.name}
                                       </td>
-                                      {/* New Sparkline */}
                                       <td className="py-3 text-center">
                                           <div className="w-16 mx-auto">
                                               <Sparkline 
@@ -935,14 +922,16 @@ export const Dashboard = () => {
           </div>
 
           <div className={cn("rounded-2xl border overflow-hidden", getGlassClass())}>
-              {/* ... (Tabs Unchanged) ... */}
-              <div className={cn("flex overflow-x-auto p-2 gap-1 border-b", theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-black/20 border-white/10')}>
+              <div className={cn(
+                  "flex overflow-x-auto w-full whitespace-nowrap no-scrollbar p-2 gap-2 border-b",
+                  theme === 'light' ? 'bg-slate-50 border-slate-200' : 'bg-black/20 border-white/10'
+              )}>
                   {(['Ongoing Now', 'Starts Tomorrow', 'This Week', 'Next Week', 'This Month'] as OpTab[]).map(tab => (
                       <button
                         key={tab}
                         onClick={() => setOpTab(tab)}
                         className={cn(
-                            "px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
+                            "px-4 py-2 rounded-lg text-xs font-bold transition-all shrink-0",
                             opTab === tab 
                                 ? (theme === 'light' ? 'bg-white shadow text-blue-600' : 'bg-white/10 text-white shadow border border-white/10')
                                 : "opacity-50 hover:opacity-100"
@@ -953,7 +942,7 @@ export const Dashboard = () => {
                   ))}
               </div>
 
-              <div className="p-6">
+              <div className="p-4 md:p-6">
                   {opLeads.length === 0 ? (
                       <div className="text-center py-12 opacity-50">
                           <PlaneLanding size={48} className="mx-auto mb-3 opacity-30" />
@@ -977,10 +966,10 @@ export const Dashboard = () => {
                               return (
                                 <div key={lead.id} className={cn("p-4 rounded-xl border transition-all hover:scale-[1.02]", theme === 'light' ? 'bg-white border-slate-100 shadow-sm' : 'bg-white/5 border-white/10')}>
                                     <div className="flex justify-between items-start mb-3">
-                                        <div>
+                                        <div className="min-w-0 pr-2">
                                             <h4 className={cn("font-bold text-sm truncate", getTextColor())}>{lead.name}</h4>
-                                            <div className="flex items-center gap-1 text-xs opacity-70 mt-0.5">
-                                                <MapPin size={10} /> {lead.tripDetails.destination}
+                                            <div className="flex items-center gap-1 text-xs opacity-70 mt-0.5 truncate">
+                                                <MapPin size={10} className="shrink-0" /> {lead.tripDetails.destination}
                                             </div>
                                         </div>
                                         <DialButton phoneNumber={lead.contact.phone} className="w-8 h-8" />

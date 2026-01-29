@@ -21,8 +21,7 @@ interface ItineraryPdfTemplateProps {
   sightseeingOverrides: Record<number, string[]>;
 }
 
-// Fixed width for A4 compatibility @ 96DPI (approx 794px). 
-// Using 800px for easy math and margin safety.
+// Fixed width for A4 compatibility.
 const PDF_WIDTH_CLASS = "w-[800px]";
 
 export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
@@ -30,7 +29,6 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
   sightseeingData, sightseeingOverrides
 }) => {
   
-  // Helper to get day data safely
   const getDayData = (index: number, city: string) => {
       const override = hotelOverrides[index];
       let currentHotel: Hotel | undefined;
@@ -54,24 +52,23 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
       if (overrides && overrides.length > 0) {
           return available.filter(s => overrides.includes(s.name));
       }
-      // If no override, show all default sightseeing for that city (up to 4 to save space)
       return available.slice(0, 4);
   };
 
   return (
-    // Off-screen container. 
-    // IMPORTANT: 'pdf-section' class is used by the parent to query blocks.
-    <div id="pdf-template-container" className="absolute top-0 left-[-9999px] bg-white text-slate-900 font-sans pointer-events-none">
+    // CHANGED: Fixed positioning at top-left with negative Z-index. 
+    // This keeps it in the viewport for correct image painting but hides it from the user.
+    <div id="pdf-template-container" className="fixed top-0 left-0 -z-50 bg-white text-slate-900 font-sans pointer-events-none">
         
-        {/* --- SECTION 1: MAGAZINE COVER PAGE --- */}
+        {/* --- SECTION 1: COVER --- */}
         <div className={cn("pdf-section relative h-[1123px] flex flex-col justify-between overflow-hidden", PDF_WIDTH_CLASS)}>
-            {/* Full Bleed Hero */}
             <div className="absolute inset-0 z-0">
                 <img 
                     src="https://rannutsav.net/wp-content/uploads/2025/08/white-desert-600x500.webp" 
                     className="w-full h-full object-cover"
                     alt="Cover"
                     crossOrigin="anonymous"
+                    loading="eager"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/10" />
             </div>
@@ -112,10 +109,9 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
             </div>
         </div>
 
-        {/* --- SECTION 2: INTRO & MAP (Combined) --- */}
+        {/* --- SECTION 2: INTRO --- */}
         <div className={cn("pdf-section p-10 bg-white", PDF_WIDTH_CLASS)}>
             <div className="flex gap-10 h-72">
-                {/* Left: Overview Stats */}
                 <div className="w-1/2 flex flex-col justify-between">
                     <div>
                         <h2 className="text-3xl font-serif font-bold text-slate-900 mb-1">Trip Overview</h2>
@@ -140,7 +136,6 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
                     </div>
                 </div>
 
-                {/* Right: Abstract Map Visual */}
                 <div className="w-1/2 bg-slate-50 rounded-2xl border border-slate-100 p-6 relative overflow-hidden">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 absolute top-6 left-6">Route Map</h3>
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -157,14 +152,13 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
                                 </React.Fragment>
                             ))}
                         </div>
-                        {/* Decor */}
                         <MapPin size={120} className="absolute text-slate-100 -right-4 -bottom-4 rotate-12" />
                     </div>
                 </div>
             </div>
         </div>
 
-        {/* --- SECTION 3...N: DAY DETAILS (Vertical Timeline) --- */}
+        {/* --- SECTIONS: DAYS --- */}
         {activePackage.route.map((city, index) => {
             const { currentHotel, currentRoom } = getDayData(index, city);
             const sights = getDaySightseeing(index, city);
@@ -181,7 +175,7 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
                         </div>
 
                         <div className="flex-1 pb-8">
-                            {/* Day Header */}
+                            {/* Header */}
                             <div className="flex justify-between items-baseline mb-4">
                                 <div>
                                     <h3 className="text-2xl font-serif font-bold text-slate-900">{city}</h3>
@@ -191,15 +185,16 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
                                 {index === activePackage.route.length - 1 && <span className="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-1 rounded uppercase">Departure</span>}
                             </div>
 
-                            {/* Hotel Card (Compact) */}
+                            {/* Hotel */}
                             {currentHotel ? (
                                 <div className="bg-slate-50 rounded-xl border border-slate-200 p-1 flex items-center gap-4 mb-6 shadow-sm break-inside-avoid">
-                                    <div className="w-24 h-16 rounded-lg overflow-hidden shrink-0 relative">
+                                    <div className="w-24 h-16 rounded-lg overflow-hidden shrink-0 relative bg-slate-200">
                                         <img 
                                             src={currentHotel.img || FALLBACK_IMG} 
                                             className="w-full h-full object-cover" 
                                             alt={currentHotel.name}
                                             crossOrigin="anonymous"
+                                            loading="eager"
                                         />
                                     </div>
                                     <div className="flex-1 py-1">
@@ -217,7 +212,7 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
                                 </div>
                             )}
 
-                            {/* Sightseeing Grid */}
+                            {/* Sightseeing - UPDATED: No line-clamp, more flexible spacing */}
                             {sights.length > 0 && (
                                 <div className="space-y-3">
                                     <h5 className="font-bold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-2">
@@ -232,11 +227,13 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
                                                         className="w-full h-full object-cover"
                                                         alt={sight.name}
                                                         crossOrigin="anonymous"
+                                                        loading="eager"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-[10px] text-slate-800 leading-tight mb-0.5 line-clamp-1">{sight.name}</p>
-                                                    <p className="text-[9px] text-slate-500 leading-tight line-clamp-2">{sight.desc}</p>
+                                                    {/* Changed text styling to prevent clipping */}
+                                                    <p className="font-bold text-[10px] text-slate-800 leading-normal mb-1">{sight.name}</p>
+                                                    <p className="text-[9px] text-slate-500 leading-relaxed">{sight.desc}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -249,7 +246,7 @@ export const ItineraryPdfTemplate: React.FC<ItineraryPdfTemplateProps> = ({
             );
         })}
 
-        {/* --- SECTION 4: COSTING & POLICY (Last Block) --- */}
+        {/* --- SECTION: COSTING --- */}
         <div className={cn("pdf-section p-12 bg-slate-50 min-h-[400px]", PDF_WIDTH_CLASS)}>
             <div className="bg-white rounded-3xl shadow-xl p-8 border border-slate-200">
                 <div className="flex justify-between items-end border-b border-dashed border-slate-200 pb-6 mb-6">

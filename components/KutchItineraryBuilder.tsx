@@ -46,7 +46,10 @@ const KutchBuilder: React.FC<{
   const [markupValue, setMarkupValue] = useState<number>(0);
   const [swapModal, setSwapModal] = useState<{ dayIndex: number; city: string } | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  
+  // PDF Generation State
   const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [showPdfTemplate, setShowPdfTemplate] = useState(false);
 
   // --- FLEET AUTO-CALCULATION ---
   useEffect(() => {
@@ -144,69 +147,109 @@ const KutchBuilder: React.FC<{
   // --- ACTION HANDLERS ---
   const handleCopyQuotation = () => { setCopyFeedback(true); setTimeout(() => setCopyFeedback(false), 2000); };
   
-  const handleDownloadPdf = async () => { 
-      setIsPdfLoading(true); 
-      
-      try {
-          // 1. Lazy load heavy libraries
-          const html2canvas = (await import('html2canvas')).default;
-          const { jsPDF } = await import('jspdf');
-
-          // 2. Identify the hidden template container
-          const templateContainer = document.getElementById('pdf-template-container');
-          if (!templateContainer) throw new Error("PDF Template container not found");
-
-          // 3. Find all "Logical Blocks" (Sections)
-          const sections = templateContainer.querySelectorAll('.pdf-section');
-          if (sections.length === 0) throw new Error("No sections found to generate");
-
-          // 4. Initialize PDF (A4 Portrait: 210mm x 297mm)
-          const pdf = new jsPDF('p', 'mm', 'a4');
-          const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-          const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-          
-          let currentY = 0;
-
-          // 5. Smart Loop: Capture each section and place it
-          for (let i = 0; i < sections.length; i++) {
-              const section = sections[i] as HTMLElement;
-              
-              // Capture specific section
-              const canvas = await html2canvas(section, {
-                  scale: 2, // High res
-                  useCORS: true,
-                  logging: false,
-                  backgroundColor: '#ffffff'
-              });
-
-              const imgData = canvas.toDataURL('image/png');
-              const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-
-              // 6. Pagination Logic
-              if (currentY + imgHeight > pdfHeight && i > 0) {
-                  pdf.addPage();
-                  currentY = 0; 
-              }
-
-              pdf.addImage(imgData, 'PNG', 0, currentY, pdfWidth, imgHeight);
-              currentY += imgHeight;
-          }
-
-          // 7. Save with Dynamic Name
-          const safeName = guestName.replace(/[^a-zA-Z0-9]/g, '_');
-          pdf.save(`${safeName}_Kutch_Itinerary_${pax}Pax.pdf`);
-
-      } catch (err) {
-          console.error("PDF Generation Error", err);
-          alert("Could not generate PDF. Please try again or check console.");
-      } finally {
-          setIsPdfLoading(false);
-      }
+  // -- UTILITY: Wait for Images to Load --
+  const waitForImages = async (container: HTMLElement) => {
+      const images = Array.from(container.querySelectorAll('img'));
+      const promises = images.map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+              img.onload = resolve;
+              img.onerror = resolve; 
+          });
+      });
+      await Promise.all(promises);
   };
 
+  const handleDownloadPdf = () => { 
+      // 1. Start Loading & Mount Template
+      setIsPdfLoading(true); 
+      setShowPdfTemplate(true);
+  };
+
+  // Effect to trigger generation AFTER template is mounted and rendered
+  useEffect(() => {
+      if (showPdfTemplate) {
+          const generate = async () => {
+              try {
+                  const html2canvas = (await import('html2canvas')).default;
+                  const { jsPDF } = await import('jspdf');
+
+                  const templateContainer = document.getElementById('pdf-template-container');
+                  if (!templateContainer) throw new Error("PDF Template container not found");
+
+                  // Force Scroll to top (helps with some capture bugs)
+                  window.scrollTo(0, 0);
+
+                  // Wait for images inside the container
+                  await waitForImages(templateContainer);
+                  
+                  // Extra buffer for layout stability
+                  await new Promise(resolve => setTimeout(resolve, 800));
+
+                  const sections = Array.from(templateContainer.querySelectorAll('.pdf-section')) as HTMLElement[];
+                  if (sections.length === 0) throw new Error("No PDF sections found");
+
+                  const pdf = new jsPDF('p', 'mm', 'a4');
+                  const pdfWidth = pdf.internal.pageSize.getWidth(); 
+                  const pdfHeight = pdf.internal.pageSize.getHeight(); 
+                  
+                  let currentY = 0;
+
+                  for (let i = 0; i < sections.length; i++) {
+                      const section = sections[i];
+                      
+                      const canvas = await html2canvas(section, {
+                          scale: 2, 
+                          useCORS: true, 
+                          allowTaint: false,
+                          logging: false,
+                          backgroundColor: '#ffffff',
+                          scrollX: 0,
+                          scrollY: 0,
+                          imageTimeout: 20000,
+                          // IMPORTANT: Make the hidden container visible during capture in the virtual clone
+                          onclone: (clonedDoc) => {
+                              const clonedContainer = clonedDoc.getElementById('pdf-template-container');
+                              if (clonedContainer) {
+                                  clonedContainer.style.opacity = '1';
+                                  clonedContainer.style.zIndex = '9999';
+                              }
+                          }
+                      });
+
+                      const imgData = canvas.toDataURL('image/jpeg', 0.85);
+                      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                      if (currentY + imgHeight > pdfHeight && i > 0) {
+                          pdf.addPage();
+                          currentY = 0; 
+                      }
+
+                      pdf.addImage(imgData, 'JPEG', 0, currentY, pdfWidth, imgHeight, undefined, 'FAST');
+                      currentY += imgHeight;
+                  }
+
+                  const safeName = guestName.replace(/[^a-zA-Z0-9]/g, '_');
+                  pdf.save(`${safeName}_Kutch_Itinerary_${pax}Pax.pdf`);
+
+              } catch (err) {
+                  console.error("PDF Generation Error", err);
+                  alert("Could not generate PDF. Please try again or check console.");
+              } finally {
+                  // Cleanup: Unmount template and stop loading
+                  setShowPdfTemplate(false);
+                  setIsPdfLoading(false);
+              }
+          };
+
+          // Trigger generation with a small delay to allow React mount
+          setTimeout(generate, 100);
+      }
+  }, [showPdfTemplate, guestName, pax]);
+
   return (
-    // Changed to absolute to fit within the Layout's <main> container (right of sidebar)
-    <div className="absolute inset-0 bg-slate-50 flex flex-col overflow-hidden animate-in fade-in duration-300">
+    // Fixed positioning to cover screen, respecting the desktop sidebar offset
+    <div className="fixed top-0 bottom-0 right-0 left-0 md:left-64 z-30 bg-slate-50 flex flex-col overflow-hidden transition-all duration-300 animate-in fade-in">
         
         {/* --- VIEW 1: GALLERY --- */}
         {view === 'gallery' && (
@@ -309,8 +352,8 @@ const KutchBuilder: React.FC<{
             />
         )}
 
-        {/* Hidden PDF Render Container - Positioned off-screen */}
-        {activePackage && editorPricing && (
+        {/* Hidden PDF Render Container - Only render when requested via button click */}
+        {showPdfTemplate && activePackage && editorPricing && (
             <ItineraryPdfTemplate 
                 guestName={guestName}
                 pax={pax}
