@@ -66,8 +66,13 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const mapLeadFromDB = (data: any): Lead => ({
     id: data.id,
     name: data.name,
-    contact: data.contact || { phone: '', email: '' },
-    tripDetails: data.trip_details || {},
+    contact: data.contact || { phone: data.phone || '', email: '' }, // Fallback to flat phone if contact obj missing
+    tripDetails: data.trip_details || {
+        destination: data.destination || '',
+        budget: data.budget || 0,
+        startDate: data.travel_date || new Date().toISOString(),
+        paxConfig: { adults: data.pax || 2, children: 0, childAges: [] }
+    },
     preferences: data.preferences || {},
     commercials: data.commercials,
     vendors: data.vendors || [],
@@ -162,41 +167,89 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- Actions ---
 
   const addLead = async (lead: Lead) => {
+    // 1. Optimistic UI Update
     const leadWithAssignment = {
         ...lead,
         lastStatusUpdate: lead.lastStatusUpdate || new Date().toISOString(),
         assignedTo: user?.role === 'agent' ? user.name : (lead.assignedTo || 'Unassigned')
     };
-
-    // Optimistic Update
     setInternalLeads(prev => [leadWithAssignment, ...prev]);
 
     try {
-        const dbPayload = mapLeadToDB(leadWithAssignment);
-        const { error } = await supabase.from('leads').insert([dbPayload]);
+        // 2. Strict Payload Sanitization
+        // Cast to 'any' to allow extracting potential flat fields (e.g. from CSV import) 
+        // OR fallback to nested structure from App types.
+        const l = lead as any;
         
-        if (error) throw error;
+        // Calculate pax from nested config if not provided directly
+        const calculatedPax = (l.tripDetails?.paxConfig?.adults || 0) + (l.tripDetails?.paxConfig?.children || 0);
+
+        const sanitizedLead: any = {
+            name: l.name,
+            phone: l.phone || l.contact?.phone || '',
+            status: l.status || 'new', // Default to 'new' per requirement
+            destination: l.destination || l.tripDetails?.destination || '',
+            pax: parseInt(l.pax) || calculatedPax || 0,
+            travel_date: l.travel_date || l.tripDetails?.startDate || null,
+            budget: parseFloat(l.budget) || parseFloat(l.tripDetails?.budget) || 0,
+            notes: l.notes || '', // Send empty string if notes missing
+        };
+
+        // Add assigned_to only if it exists
+        const assignee = l.assigned_to || (user?.role === 'agent' ? user.name : l.assignedTo);
+        if (assignee && assignee !== 'Unassigned') {
+            sanitizedLead.assigned_to = assignee;
+        }
+
+        // 3. Debug Log
+        console.log('Sending to Supabase:', sanitizedLead);
+
+        // 4. Insert
+        const { error } = await supabase.from('leads').insert([sanitizedLead]);
+        
+        if (error) {
+            console.error('Supabase Insert Error Details:', error);
+            throw error;
+        }
         
         logActivity('NEW_LEAD', leadWithAssignment, `Created new lead: ${leadWithAssignment.name}`);
     } catch (err) {
         console.error('Supabase Add Error:', err);
-        // Revert or Refetch
+        // Revert Optimistic Update
         fetchLeads();
     }
   };
 
   const addLeads = async (newLeads: Lead[]) => {
+      // Bulk import also likely needs strict sanitization if your schema is strict
+      // For now, retaining mostly original logic but mapped to new DB expectations?
+      // Use logic similar to addLead for safety if bulk import fails.
+      
       const leadsWithTimestamp = newLeads.map(l => ({
           ...l,
           lastStatusUpdate: l.lastStatusUpdate || new Date().toISOString(),
           assignedTo: user?.role === 'agent' ? user.name : (l.assignedTo || 'Unassigned')
       }));
 
-      // Optimistic
       setInternalLeads(prev => [...leadsWithTimestamp, ...prev]);
 
       try {
-          const dbPayloads = leadsWithTimestamp.map(mapLeadToDB);
+          // Attempting to use the new flat schema for bulk import as well
+          const dbPayloads = leadsWithTimestamp.map((lead: any) => {
+             const calculatedPax = (lead.tripDetails?.paxConfig?.adults || 0) + (lead.tripDetails?.paxConfig?.children || 0);
+             return {
+                name: lead.name,
+                phone: lead.contact?.phone || '',
+                status: lead.status || 'new',
+                destination: lead.tripDetails?.destination || '',
+                pax: parseInt(lead.pax) || calculatedPax || 0,
+                travel_date: lead.tripDetails?.startDate || null,
+                budget: parseFloat(lead.tripDetails?.budget) || 0,
+                notes: lead.notes || '',
+                assigned_to: lead.assignedTo !== 'Unassigned' ? lead.assignedTo : undefined
+             };
+          });
+
           const { error } = await supabase.from('leads').insert(dbPayloads);
           
           if (error) throw error;
