@@ -5,6 +5,7 @@ import { MOCK_INTERACTIONS, MOCK_REMINDERS, MOCK_SUPPLIERS, MOCK_ACTIVITY_LOGS }
 import { generateId } from '../utils/helpers';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import { useRealtime } from '../hooks/useRealtime';
 
 // Nudge Type Definition
 export interface NudgeData {
@@ -66,7 +67,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const mapLeadFromDB = (data: any): Lead => ({
     id: data.id,
     name: data.name,
-    contact: data.contact || { phone: data.phone || '', email: '' }, // Fallback to flat phone if contact obj missing
+    contact: data.contact || { phone: data.phone || '', email: '' }, 
     tripDetails: data.trip_details || {
         destination: data.destination || '',
         budget: data.budget || 0,
@@ -89,7 +90,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const mapLeadToDB = (lead: Partial<Lead>) => {
     const dbObj: any = { ...lead };
-    // Map camelCase to snake_case for specific columns
     if (lead.tripDetails) dbObj.trip_details = lead.tripDetails;
     if (lead.interestedServices) dbObj.interested_services = lead.interestedServices;
     if (lead.referenceName) dbObj.reference_name = lead.referenceName;
@@ -97,7 +97,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (lead.lastStatusUpdate) dbObj.last_status_update = lead.lastStatusUpdate;
     if (lead.createdAt) dbObj.created_at = lead.createdAt;
 
-    // Remove app-specific keys that aren't columns
     delete dbObj.tripDetails;
     delete dbObj.interestedServices;
     delete dbObj.referenceName;
@@ -110,17 +109,14 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- Fetch Logic ---
   const fetchLeads = async () => {
-    setIsLoading(true);
+    if(internalLeads.length === 0) setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Supabase fetch error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
         setInternalLeads(data.map(mapLeadFromDB));
@@ -136,6 +132,29 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchLeads();
   }, []);
 
+  // --- REALTIME SUBSCRIPTION ---
+  // Serves as a backup and for syncing changes from OTHER users.
+  useRealtime('leads', (payload) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    if (eventType === 'INSERT') {
+      const newLead = mapLeadFromDB(newRecord);
+      setInternalLeads(prev => {
+        // Prevent duplicate inserts if we already added it optimistically
+        if (prev.some(l => l.id === newLead.id)) return prev;
+        return [newLead, ...prev];
+      });
+      logActivity('NEW_LEAD', newLead, `New lead received: ${newLead.name}`);
+    } 
+    else if (eventType === 'UPDATE') {
+      const updatedLead = mapLeadFromDB(newRecord);
+      setInternalLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+    } 
+    else if (eventType === 'DELETE') {
+      setInternalLeads(prev => prev.filter(l => l.id !== oldRecord.id));
+    }
+  });
+
   const visibleLeads = useMemo(() => {
       if (!user) return [];
       if (user.role === 'admin') return internalLeads;
@@ -148,10 +167,9 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       details: string,
       extraMetadata?: any
   ) => {
-      if (!user) return;
       const newLog: ActivityLog = {
           id: generateId(),
-          agentName: user.name,
+          agentName: user?.name || 'System',
           actionType,
           details,
           timestamp: new Date().toISOString(),
@@ -167,65 +185,51 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- Actions ---
 
   const addLead = async (lead: Lead) => {
-    // 1. Optimistic UI Update
-    const leadWithAssignment = {
-        ...lead,
-        lastStatusUpdate: lead.lastStatusUpdate || new Date().toISOString(),
-        assignedTo: user?.role === 'agent' ? user.name : (lead.assignedTo || 'Unassigned')
-    };
-    setInternalLeads(prev => [leadWithAssignment, ...prev]);
-
     try {
-        // 2. Strict Payload Sanitization
         const l = lead as any;
-        
-        // Calculate pax from nested config if not provided directly
         const calculatedPax = (l.tripDetails?.paxConfig?.adults || 0) + (l.tripDetails?.paxConfig?.children || 0);
 
         const sanitizedLead: any = {
             name: l.name,
             phone: l.phone || l.contact?.phone || '',
-            status: l.status || 'new', // Default to 'new' per requirement
+            status: l.status || 'new',
             destination: l.destination || l.tripDetails?.destination || '',
             pax: parseInt(l.pax) || calculatedPax || 0,
             travel_date: l.travel_date || l.tripDetails?.startDate || null,
             budget: parseFloat(l.budget) || parseFloat(l.tripDetails?.budget) || 0,
-            notes: l.notes || '', // Send empty string if notes missing
+            notes: l.notes || '',
         };
 
-        // Add assigned_to only if it exists
         const assignee = l.assigned_to || (user?.role === 'agent' ? user.name : l.assignedTo);
         if (assignee && assignee !== 'Unassigned') {
             sanitizedLead.assigned_to = assignee;
         }
 
-        // 3. Insert
-        const { error } = await supabase.from('leads').insert([sanitizedLead]);
+        // Standardize Add Pattern: Insert -> Select -> Update State
+        const { data, error } = await supabase
+            .from('leads')
+            .insert([sanitizedLead])
+            .select()
+            .single();
         
-        if (error) {
-            console.error('Supabase Insert Error Details:', error);
-            throw error;
+        if (error) throw error;
+        
+        if (data) {
+            const newLead = mapLeadFromDB(data);
+            setInternalLeads(prev => {
+                if (prev.some(item => item.id === newLead.id)) return prev;
+                return [newLead, ...prev];
+            });
+            logActivity('NEW_LEAD', newLead, `Created lead: ${newLead.name}`);
         }
-        
-        logActivity('NEW_LEAD', leadWithAssignment, `Created new lead: ${leadWithAssignment.name}`);
     } catch (err) {
         console.error('Supabase Add Error:', err);
-        // Revert Optimistic Update
-        fetchLeads();
     }
   };
 
   const addLeads = async (newLeads: Lead[]) => {
-      const leadsWithTimestamp = newLeads.map(l => ({
-          ...l,
-          lastStatusUpdate: l.lastStatusUpdate || new Date().toISOString(),
-          assignedTo: user?.role === 'agent' ? user.name : (l.assignedTo || 'Unassigned')
-      }));
-
-      setInternalLeads(prev => [...leadsWithTimestamp, ...prev]);
-
       try {
-          const dbPayloads = leadsWithTimestamp.map((lead: any) => {
+          const dbPayloads = newLeads.map((lead: any) => {
              const calculatedPax = (lead.tripDetails?.paxConfig?.adults || 0) + (lead.tripDetails?.paxConfig?.children || 0);
              return {
                 name: lead.name,
@@ -240,31 +244,51 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
              };
           });
 
-          const { error } = await supabase.from('leads').insert(dbPayloads);
-          
-          if (error) throw error;
+          // Standardize Bulk Add Pattern: Insert -> Select -> Update State
+          const { data, error } = await supabase
+            .from('leads')
+            .insert(dbPayloads)
+            .select();
 
-          if (leadsWithTimestamp.length > 0) {
-              logActivity('NEW_LEAD', leadsWithTimestamp[0], `Imported ${leadsWithTimestamp.length} leads`);
+          if (error) throw error;
+          
+          if (data) {
+              const mappedLeads = data.map(mapLeadFromDB);
+              setInternalLeads(prev => {
+                  const existingIds = new Set(prev.map(l => l.id));
+                  const uniqueNew = mappedLeads.filter(l => !existingIds.has(l.id));
+                  return [...uniqueNew, ...prev];
+              });
+              
+              if (mappedLeads.length > 0) {
+                  logActivity('NEW_LEAD', mappedLeads[0], `Imported ${mappedLeads.length} leads`);
+              }
           }
       } catch (err) {
           console.error('Supabase Bulk Add Error:', err);
-          fetchLeads();
       }
   };
 
   const updateLead = async (id: string, updates: Partial<Lead>) => {
-    // Optimistic
-    setInternalLeads(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
-
     try {
         const dbUpdates = mapLeadToDB(updates);
-        const { error } = await supabase.from('leads').update(dbUpdates).eq('id', id);
         
+        // Standardize Update Pattern: Update -> Select -> Update State
+        const { data, error } = await supabase
+            .from('leads')
+            .update(dbUpdates)
+            .eq('id', id)
+            .select()
+            .single();
+
         if (error) throw error;
+
+        if (data) {
+            const updatedLead = mapLeadFromDB(data);
+            setInternalLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
+        }
     } catch (err) {
         console.error('Supabase Update Error:', err);
-        fetchLeads();
     }
   };
 
@@ -273,14 +297,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const oldStatus = currentLead?.status;
     const newTimestamp = new Date().toISOString();
 
-    // Optimistic
-    setInternalLeads(prev => prev.map(l => l.id === id ? { 
-        ...l, 
-        status, 
-        lastStatusUpdate: newTimestamp 
-    } : l));
-    
-    // Log Interaction
     const interaction: Interaction = {
       id: generateId(),
       leadId: id,
@@ -292,107 +308,86 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addInteraction(interaction);
 
     try {
-        const { error } = await supabase.from('leads').update({
+        // Standardize Update Pattern: Update -> Select -> Update State
+        const { data, error } = await supabase.from('leads').update({
             status: status,
             last_status_update: newTimestamp
-        }).eq('id', id);
+        })
+        .eq('id', id)
+        .select()
+        .single();
 
         if (error) throw error;
 
-        if (currentLead) {
-            logActivity(
-                'STATUS_CHANGE', 
-                currentLead, 
-                `Moved ${currentLead.name} from ${oldStatus} -> ${status}`,
-                { oldStatus, newStatus: status }
-            );
+        if (data) {
+            const updatedLead = mapLeadFromDB(data);
+            setInternalLeads(prev => prev.map(l => l.id === id ? updatedLead : l));
 
-            // Nudge Logic
-            if (status !== 'Lost' && status !== 'New') {
-                setNudge({
-                    isOpen: true,
-                    leadId: currentLead.id,
-                    leadName: currentLead.name,
-                    status: status
-                });
+            if (currentLead) {
+                logActivity(
+                    'STATUS_CHANGE', 
+                    updatedLead, 
+                    `Moved ${updatedLead.name} from ${oldStatus} -> ${status}`,
+                    { oldStatus, newStatus: status }
+                );
+
+                if (status !== 'Lost' && status !== 'New') {
+                    setNudge({
+                        isOpen: true,
+                        leadId: updatedLead.id,
+                        leadName: updatedLead.name,
+                        status: status
+                    });
+                }
             }
         }
     } catch (err) {
         console.error('Supabase Status Update Error:', err);
-        // Revert state on error
-        await fetchLeads();
-        // Propagate error to let UI know
         throw err;
     }
   };
 
   const deleteLead = async (id: string) => {
-    // Optimistic
-    setInternalLeads(prev => prev.filter(l => l.id !== id));
-    
     try {
         const { error } = await supabase.from('leads').delete().eq('id', id);
         if (error) throw error;
 
+        // Standardize Delete Pattern: Immediate Filter
+        setInternalLeads(prev => prev.filter(l => l.id !== id));
+        
         // Cleanup local state
         setInteractions(prev => prev.filter(i => i.leadId !== id));
         setReminders(prev => prev.filter(r => r.leadId !== id));
     } catch (err) {
         console.error('Supabase Delete Error:', err);
-        fetchLeads();
     }
   };
 
-  // --- Local State Helpers (Unchanged) ---
+  // --- Local State Helpers ---
 
-  const closeNudge = () => {
-      setNudge(prev => ({ ...prev, isOpen: false }));
-  };
-
-  const addInteraction = (interaction: Interaction) => {
-    setInteractions(prev => [interaction, ...prev]);
-  };
-
-  const addReminder = (reminder: Reminder) => {
-    setReminders(prev => [reminder, ...prev]);
-  };
-
-  const updateReminder = (id: string, updates: Partial<Reminder>) => {
-    setReminders(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-  };
-
+  const closeNudge = () => setNudge(prev => ({ ...prev, isOpen: false }));
+  const addInteraction = (interaction: Interaction) => setInteractions(prev => [interaction, ...prev]);
+  const addReminder = (reminder: Reminder) => setReminders(prev => [reminder, ...prev]);
+  const updateReminder = (id: string, updates: Partial<Reminder>) => setReminders(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   const toggleReminder = (id: string) => {
     const reminder = reminders.find(r => r.id === id);
     if (!reminder) return;
-    
     const newStatus = !reminder.isCompleted;
     setReminders(prev => prev.map(r => r.id === id ? { ...r, isCompleted: newStatus } : r));
-
     if (newStatus) {
-      const interaction: Interaction = {
+      addInteraction({
         id: generateId(),
         leadId: reminder.leadId,
         type: 'TaskLog',
         content: `Completed Task: ${reminder.task}`,
         timestamp: new Date().toISOString(),
         sentiment: 'Neutral'
-      };
-      addInteraction(interaction);
+      });
     }
   };
-  
-  const deleteReminder = (id: string) => {
-      setReminders(prev => prev.filter(r => r.id !== id));
-  }
-
-  const addSupplier = (supplier: Supplier) => {
-      setSuppliers(prev => [supplier, ...prev]);
-  };
-
-  const updateSupplier = (updatedSupplier: Supplier) => {
-      setSuppliers(prev => prev.map(s => s.id === updatedSupplier.id ? updatedSupplier : s));
-  };
-
+  const deleteReminder = (id: string) => setReminders(prev => prev.filter(r => r.id !== id));
+  const addSupplier = (supplier: Supplier) => setSuppliers(prev => [supplier, ...prev]);
+  const updateSupplier = (updatedSupplier: Supplier) => setSuppliers(prev => prev.map(s => s.id === updatedSupplier.id ? updatedSupplier : s));
   const getLeadsByStatus = (status: LeadStatus) => visibleLeads.filter(l => l.status === status);
   const getLeadInteractions = (leadId: string) => interactions.filter(i => i.leadId === leadId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   const getLeadReminders = (leadId: string) => reminders.filter(r => r.leadId === leadId);
@@ -433,6 +428,6 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useLeads = () => {
   const context = useContext(LeadContext);
-  if (!context) throw new Error('useLeads must be used within a LeadProvider');
+  if (!context) throw new Error('useLeads must be used within an LeadProvider');
   return context;
 };

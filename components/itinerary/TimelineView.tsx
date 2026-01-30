@@ -31,7 +31,16 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 }) => {
   const { theme, getTextColor } = useTheme();
 
-  const getVehicleImg = (name: string) => vehicleData.find(v => v.name === name)?.img || "";
+  // Robust lookup: case-insensitive and whitespace trimmed
+  const getVehicleImg = (name: string) => {
+      const cleanName = name.toLowerCase().trim();
+      const vehicle = vehicleData.find(v => v.name.toLowerCase().trim() === cleanName);
+      // Appending a timestamp query param helps bust browser cache if the URL hasn't changed but content has
+      if (vehicle?.img) {
+          return `${vehicle.img}?t=${new Date().getDate()}`; // Simple daily cache buster
+      }
+      return "";
+  };
 
   return (
     <div className="relative border-l-2 border-slate-200 ml-2 md:ml-4 space-y-8 md:space-y-12 pb-10">
