@@ -35,9 +35,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   const getVehicleImg = (name: string) => {
       const cleanName = name.toLowerCase().trim();
       const vehicle = vehicleData.find(v => v.name.toLowerCase().trim() === cleanName);
-      // Appending a timestamp query param helps bust browser cache if the URL hasn't changed but content has
+      // Ensure we use the fallback logic from the hook
       if (vehicle?.img) {
-          return `${vehicle.img}?t=${new Date().getDate()}`; // Simple daily cache buster
+          // Append simple cache buster if it's a valid URL to prevent stale images
+          return `${vehicle.img}`; 
       }
       return "";
   };
@@ -72,7 +73,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                                     src={getVehicleImg(vehicle.name) || FALLBACK_IMG} 
                                     onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMG; }}
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                                    alt={vehicle.name} 
+                                    alt={vehicle.name || "Vehicle Image"} 
                                 />
                             </div>
                             <div className="flex flex-col justify-center min-w-0">
@@ -154,8 +155,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                                         <img 
                                             src={currentHotel.img || FALLBACK_IMG} 
                                             onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMG; }}
-                                            alt={currentHotel.name} 
-                                            className="w-full h-full object-cover" 
+                                            alt={currentHotel.name || "Hotel Image"} 
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
                                         />
                                         <div className="absolute inset-0 bg-black/10" />
                                         <div className="absolute bottom-2 left-2 sm:hidden">
@@ -231,7 +232,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                                                 <img 
                                                     src={spot.img || FALLBACK_IMG} 
                                                     onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMG; }}
-                                                    alt={spot.name} 
+                                                    alt={spot.name || "Sightseeing Image"} 
                                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
                                                 />
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

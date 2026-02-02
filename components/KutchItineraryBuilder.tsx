@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { generateId, useRoomCalculator } from '../utils/helpers';
+import { generateId, useRoomCalculator, formatDate, formatCurrency } from '../utils/helpers';
 import { PageLoader } from './ui/PageLoader';
 import { Hotel, ItineraryPackage, RoomType, Vehicle, Sightseeing } from '../types';
 import { DestinationGallery } from './DestinationGallery';
@@ -16,7 +16,7 @@ import { FleetManager } from './itinerary/FleetManager';
 import { HotelSwapModal } from './itinerary/HotelSwapModal';
 import { ItineraryPdfTemplate } from './itinerary/ItineraryPdfTemplate';
 import { FleetItem, CustomDay } from './itinerary/types';
-import { FALLBACK_IMG } from './itinerary/utils';
+import { FALLBACK_IMG, getMealPlanLabel, getSmartDate } from './itinerary/utils';
 
 // --- MAIN COMPONENT ---
 
@@ -144,8 +144,113 @@ const KutchBuilder: React.FC<{
       setView('editor');
   };
 
-  // --- ACTION HANDLERS ---
-  const handleCopyQuotation = () => { setCopyFeedback(true); setTimeout(() => setCopyFeedback(false), 2000); };
+  // --- TEXT GENERATION & COPY LOGIC ---
+
+  const generateItineraryText = () => {
+      if (!activePackage || !editorPricing) return '';
+
+      // Calculate End Date
+      const endD = new Date(startDate);
+      endD.setDate(endD.getDate() + activePackage.days - 1);
+      const endDateStr = formatDate(endD.toISOString());
+      
+      const vehicleStr = fleet.map(f => `${f.count}x ${f.name}`).join(', ');
+
+      let text = `🌟 *Quotation by THE TOURISM EXPERTS* 🌟\n\n`;
+      text += `📅 *Trip Summary*\n`;
+      text += `👤 *Guest:* ${guestName}\n`;
+      text += `👥 *Pax:* ${pax} Adults\n`;
+      text += `⏳ *Duration:* ${activePackage.days - 1} Nights / ${activePackage.days} Days\n`;
+      text += `🗓 *Dates:* ${formatDate(startDate)} - ${endDateStr}\n`;
+      text += `🚗 *Transport:* ${vehicleStr}\n\n`;
+
+      text += `--- *Daily Itinerary* ---\n\n`;
+
+      activePackage.route.forEach((city, index) => {
+          const date = getSmartDate(startDate, index);
+          
+          // Resolve Hotel & Room
+          const override = hotelOverrides[index];
+          let hotelName = 'No Hotel Selected';
+          let roomName = '';
+          let mealPlan = '';
+
+          if (override) {
+              hotelName = override.hotel.name;
+              roomName = override.roomType.name;
+              mealPlan = getMealPlanLabel(override.hotel.type);
+          } else {
+              const cityHotels = hotelData[city] || [];
+              const hotel = cityHotels.find(h => h.tier === baseTier) || cityHotels[0];
+              if (hotel) {
+                  hotelName = hotel.name;
+                  roomName = hotel.roomTypes[0]?.name || '';
+                  mealPlan = getMealPlanLabel(hotel.type);
+              }
+          }
+
+          // Resolve Sightseeing
+          const daySightseeingOverrides = sightseeingOverrides[index];
+          const allSights = sightseeingData[city] || [];
+          const sights = daySightseeingOverrides
+              ? allSights.filter(s => daySightseeingOverrides.includes(s.name))
+              : allSights; // Default shows all available for simplicity in text, or you can limit to 3
+          
+          const sightNames = sights.map(s => s.name).join(', ');
+
+          text += `📍 *Day ${index + 1}: ${city}* (${date})\n`;
+          text += `🏨 Stay: ${hotelName} (${roomName})\n`;
+          text += `🍽 Plan: ${mealPlan}\n`;
+          if (sightNames) text += `📸 Visits: ${sightNames}\n`;
+          text += `\n`;
+      });
+
+      text += `💰 *Total Cost:* ${formatCurrency(editorPricing.finalTotal)}\n`;
+      text += `   (Includes Hotels, Transport, & Taxes)\n`;
+
+      return text;
+  };
+
+  const handleCopyQuotation = async () => {
+      const text = generateItineraryText();
+      if (!text) return;
+
+      try {
+          // Attempt 1: Modern Clipboard API
+          await navigator.clipboard.writeText(text);
+          setCopyFeedback(true);
+          setTimeout(() => setCopyFeedback(false), 2000);
+      } catch (err) {
+          console.warn("Clipboard API failed, falling back to execCommand", err);
+          // Attempt 2: Fallback for HTTP/older browsers
+          try {
+              const textArea = document.createElement("textarea");
+              textArea.value = text;
+              
+              // Ensure it's not visible but part of DOM
+              textArea.style.position = "fixed";
+              textArea.style.left = "-9999px";
+              textArea.style.top = "0";
+              document.body.appendChild(textArea);
+              
+              textArea.focus();
+              textArea.select();
+              
+              const successful = document.execCommand('copy');
+              document.body.removeChild(textArea);
+              
+              if (successful) {
+                  setCopyFeedback(true);
+                  setTimeout(() => setCopyFeedback(false), 2000);
+              } else {
+                  alert("Failed to copy. Please manually copy the text.");
+              }
+          } catch (fallbackErr) {
+              console.error("Copy failed", fallbackErr);
+              alert("Clipboard access denied. Please allow clipboard permissions.");
+          }
+      }
+  };
   
   // -- UTILITY: Wait for Images to Load --
   const waitForImages = async (container: HTMLElement) => {

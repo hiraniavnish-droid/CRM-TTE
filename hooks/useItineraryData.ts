@@ -14,8 +14,9 @@ interface ItineraryData {
 }
 
 // Helper to safely extract image from various common column names
+// Includes fallback chain: image_url -> cover_image -> image -> photo -> url -> img
 const extractImage = (row: any) => {
-  return row.image_url || row.img_url || row.image || row.url || row.img || null;
+  return row.image_url || row.cover_image || row.image || row.photo || row.url || row.img || null;
 };
 
 export const useItineraryData = (destinationSlug: string = 'kutch') => {
@@ -34,10 +35,11 @@ export const useItineraryData = (destinationSlug: string = 'kutch') => {
       // setData(prev => ({ ...prev, loading: true }));
 
       // 1. Fetch Hotels
+      // Changed to select * to avoid "column does not exist" errors for specific image columns
       const { data: hotelsRaw, error: hotelError } = await supabase
         .from('hotels')
         .select(`
-          id, name, type, tier, image_url,
+          *,
           locations!inner (name),
           room_types (name, capacity, rate)
         `);
@@ -45,10 +47,11 @@ export const useItineraryData = (destinationSlug: string = 'kutch') => {
       if (hotelError) throw hotelError;
 
       // 2. Fetch Sightseeing
+      // Changed to select * to be safe
       const { data: sightsRaw, error: sightError } = await supabase
         .from('sightseeing')
         .select(`
-          id, name, description, image_url,
+          *,
           locations!inner (name)
         `);
 
@@ -81,7 +84,7 @@ export const useItineraryData = (destinationSlug: string = 'kutch') => {
           rate: 0, 
           type: h.type,
           tier: h.tier,
-          img: extractImage(h), // Use helper
+          img: extractImage(h), // Will pick up image_url from *
           roomTypes: h.room_types.map((rt: any) => ({
             name: rt.name,
             capacity: rt.capacity,
@@ -99,7 +102,7 @@ export const useItineraryData = (destinationSlug: string = 'kutch') => {
         sightseeingData[city].push({
           name: s.name?.trim(),
           desc: s.description,
-          img: extractImage(s) // Use helper
+          img: extractImage(s) // Will pick up image_url from *
         });
       });
 
@@ -108,14 +111,14 @@ export const useItineraryData = (destinationSlug: string = 'kutch') => {
         name: v.name?.trim(), // Important: Trim whitespace
         rate: v.rate,
         capacity: v.capacity,
-        img: extractImage(v) // Use helper
+        img: extractImage(v) // Use robust helper
       })) || [];
 
       // Transform Packages
       const packages: ItineraryPackage[] = packagesRaw?.map((p: any) => ({
         id: p.id,
         name: p.name?.trim(),
-        img: extractImage(p), // Use helper
+        img: extractImage(p), // Use robust helper
         days: p.days,
         // Ensure route is parsed if it comes as a JSON string, or used directly if JSONB
         route: typeof p.route === 'string' ? JSON.parse(p.route) : p.route

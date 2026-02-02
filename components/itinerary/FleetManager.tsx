@@ -24,7 +24,11 @@ export const FleetManager: React.FC<FleetManagerProps> = ({
 }) => {
   const { getTextColor } = useTheme();
 
-  const getVehicleImg = (name: string) => vehicleData.find(v => v.name === name)?.img || "";
+  const getVehicleImg = (name: string) => {
+      const v = vehicleData.find(v => v.name === name);
+      // The hook now handles the fallback chain, so `v.img` is the best available URL
+      return v?.img || "";
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Manage Transport Fleet">
@@ -42,7 +46,7 @@ export const FleetManager: React.FC<FleetManagerProps> = ({
                                 <img 
                                     src={vehicleImg || FALLBACK_IMG} 
                                     onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMG; }}
-                                    alt={vehicle.name} 
+                                    alt={vehicle.name || "Vehicle Image"} 
                                     className="w-full h-full object-cover" 
                                 />
                             </div>
